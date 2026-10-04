@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report 3: the shipping result</title>
+<meta name="description" content="The dataset behind the model that ships, with its full parameter budget.">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../papers/index.html">Papers</a><a href="../../topics/index.html">Topics</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<p>The result the shipping model is built on. A dataset size is only interesting if it changes what the model can do, so this one changes both the seed count and the out-of-distribution share.</p><p class='callout'>&lt;strong&gt;NOVA does not parse, summarise or compress context.&lt;/strong&gt; It has no text model. It scores options. Feeding it less text changes the inputs; producing less text is a different job.</p><p><strong>Hypothesis:</strong> ~1M learned parameters beat rules / embedding / linear on dynamic option arbitration</p><p><strong>Architecture:</strong> NOVA-s</p><p><strong>Dataset:</strong> D1_synthetic.npz</p><p><strong>Dataset config:</strong> {&quot;families&quot;: [&quot;CURRENT_INFORMATION&quot;, &quot;COMPUTE&quot;, &quot;TOOL_TASK&quot;, &quot;MULTI_STEP&quot;, &quot;HIGH_RISK&quot;, &quot;DEGRADED&quot;], &quot;generator_version&quot;: &quot;v1.0.0&quot;, &quot;max_options&quot;: 9, &quot;mutations_per_seed&quot;: 1, &quot;n_ood&quot;: 480, &quot;n_seed&quot;: 4000, &quot;n_total&quot;: 9860, &quot;negatives_per_seed&quot;: 2, &quot;option_dim&quot;: 28, &quot;policies&quot;: [&quot;BALANCED&quot;, &quot;CHEAP&quot;, &quot;FAST&quot;, &quot;SAFE&quot;, &quot;QUALITY&quot;], &quot;seed&quot;: 20261003, &quot;state_dim&quot;: 30}</p><p><strong>Train seconds:</strong> 69.23874425888062</p><h2>Parameter budget</h2><div class='scroll'><table><caption>Read from experiments/EXP-003-s480k-listwise.json</caption><thead><tr><th>Component</th><th>Count</th></tr></thead><tbody><tr><td>state encoder</td><td>73,728</td></tr><tr><td>option encoder</td><td>20,224</td></tr><tr><td>bilinear interaction</td><td>24,640</td></tr><tr><td>trunk</td><td>361,216</td></tr><tr><td>heads</td><td>1,542</td></tr><tr><td>total</td><td>481,350</td></tr><tr><td>fp32 bytes</td><td>1,925,400</td></tr><tr><td>fp16 bytes</td><td>962,700</td></tr><tr><td>int8 bytes</td><td>481,350</td></tr><tr><td>int4 bytes approx</td><td>240,675</td></tr><tr><td>fp32 mib</td><td>1.8362</td></tr><tr><td>int8 mib</td><td>0.4591</td></tr></tbody></table></div><h2>Baselines</h2><div class='scroll'><table><thead><tr><th>Method</th><th>Accuracy</th><th>Regret</th><th>ECE</th></tr></thead><tbody><tr><td>rules</td><td>0.5328</td><td>0.1156</td><td>0.0608</td></tr><tr><td>keywords</td><td>0.4150</td><td>0.2236</td><td>0.0670</td></tr><tr><td>cosine</td><td>0.1483</td><td>0.5582</td><td>0.1605</td></tr><tr><td>linear</td><td>0.7278</td><td>0.0362</td><td>0.2210</td></tr></tbody></table></div><h2>Result</h2><p>NOVA acc 0.9005 vs best baseline 0.7278; regret 0.0029; params 481,350</p><h2>Limit</h2><p>Regret is measured against the analytic world&#x27;s best available option, not against what happened in a deployment. The dataset is synthetic by construction, so these figures describe how well the scorer learned that world and say nothing yet about a world it has not seen.</p>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>
