@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report 12: the ONNX contract</title>
+<meta name="description" content="Whether the exported graph still serves this checkpoint, picks the same options, and runs inside its latency budget.">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../papers/index.html">Papers</a><a href="../../topics/index.html">Topics</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<p>EXP-005 measured the ONNX path once, at export time, and nothing kept measuring it. Two things can rot without anybody noticing: the checkpoint can be retrained and the graph left stale, so a consumer asking for ONNX is served the old model while every document still calls it NOVA; and the graph can drift numerically from the torch weights it claims to be an export of. This gate checks the recorded checkpoint hash, the per-scenario agreement, and the latency budget.</p><p><strong>Question:</strong> does the exported ONNX graph still serve this checkpoint, pick the same options, and run inside its budget</p><p><strong>Verdict:</strong> PASS</p><h2>Terms</h2><div class='scroll'><table><caption>200 scenarios from the D1_synthetic test split</caption><thead><tr><th>Term</th><th>Result</th></tr></thead><tbody><tr><td><code>graph_matches_checkpoint</code></td><td>pass</td></tr><tr><td><code>fp32_matches_torch</code></td><td>pass</td></tr><tr><td><code>fp32_same_selection</code></td><td>pass</td></tr><tr><td><code>int8_accuracy_cost</code></td><td>pass</td></tr><tr><td><code>latency_within_drift_budget</code></td><td>pass</td></tr></tbody></table></div><h2>Agreement with torch</h2><div class='scroll'><table><caption>Read from experiments/EXP-012-onnx-contract.json</caption><thead><tr><th>Measure</th><th>Value</th></tr></thead><tbody><tr><td>max |torch &minus; ort_fp32|</td><td>1.526e-05</td></tr><tr><td>Same option selected (fp32)</td><td>1.0000</td></tr><tr><td>Same option selected (int8)</td><td>0.9600</td></tr><tr><td>int8 accuracy delta</td><td>-0.0050</td></tr></tbody></table></div><h2>Latency against the EXP-005 baseline</h2><div class='scroll'><table><caption>Single-threaded CPU execution provider</caption><thead><tr><th>Runtime</th><th>p50 ms</th><th>p95 ms</th><th>baseline p50</th><th>drift</th></tr></thead><tbody><tr><td><code>torch_fp32</code></td><td>0.9505</td><td>1.0973</td><td>0.9806</td><td>0.97x</td></tr><tr><td><code>ort_fp32</code></td><td>0.2948</td><td>0.3691</td><td>0.2730</td><td>1.08x</td></tr><tr><td><code>ort_int8</code></td><td>0.2657</td><td>0.3199</td><td>0.2346</td><td>1.13x</td></tr></tbody></table></div><h2>Limit</h2><p>The selection-agreement term is gated at 1.0 for fp32 and left ungated for int8, because quantisation is allowed to change a choice &amp;mdash; that is the accuracy cost EXP-005 already measured, and pretending otherwise would make the gate fail on the thing it is supposed to describe. The latency budget is a ratio against the recorded baseline, so a slower machine is not a failure; a 3x regression is. Staleness is detected by hash, which is why the recorded value is only as good as the export that wrote it.</p>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

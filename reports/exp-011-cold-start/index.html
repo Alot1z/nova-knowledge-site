@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report 11: cold start, over the real transport</title>
+<meta name="description" content="Spawning the server and timing it to its first decision over real stdio JSON-RPC, and why discovery left the decide path.">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../papers/index.html">Papers</a><a href="../../topics/index.html">Topics</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<p>NOVA&#x27;s first decision is only useful if it arrives while the host is still waiting. Every other timing number in this project is measured inside a process that has already imported torch; this one is not. It spawns &lt;code&gt;python -m nova.mcp_server&lt;/code&gt;, speaks real newline-delimited JSON-RPC over pipes, and stops the clock when the first &lt;code&gt;nova_decide&lt;/code&gt; result comes back.</p><p><strong>Question:</strong> time from spawning the MCP server to holding its first decision, over real stdio JSON-RPC</p><h2>Measured</h2><div class='scroll'><table><caption>Fresh subprocess, real stdio transport</caption><thead><tr><th>Stage</th><th>Seconds</th></tr></thead><tbody><tr><td>Time to first decision</td><td>4.2119</td></tr><tr><td>Handshake (spawn &rarr; initialize)</td><td>4.1823</td></tr><tr><td>Both decisions</td><td>4.2180</td></tr><tr><td>&mdash; of which <code>import nova.mcp_server</code></td><td>2.2668</td></tr><tr><td>&mdash; checkpoint load</td><td>0.0156</td></tr><tr><td>&mdash; first decision, warm interpreter</td><td>0.0047</td></tr><tr><td>Budget</td><td>12.0000</td></tr></tbody></table></div><h2>What it used to cost</h2><div class='scroll'><table><caption>Run with --with-discovery; discovery is no longer on the decide path</caption><thead><tr><th>Stage</th><th>Seconds</th></tr></thead><tbody><tr><td>Discovery, opt-in measurement</td><td>23.5144</td></tr><tr><td>Options it found</td><td>424</td></tr></tbody></table></div><h2>Why discovery left the decide path</h2><p>It never belonged there. &lt;code&gt;run_discovery()&lt;/code&gt; registers what it finds into the executive&#x27;s registry, and exactly one caller reads that registry: &lt;code&gt;Cascade.handle&lt;/code&gt;, the free-text branch, which unions it. &lt;code&gt;NOVA.decide&lt;/code&gt; filters only the options in the request. So a caller that supplied its own options paid the whole discovery cost to populate a registry that could not change the answer. The host that wants the discovered pool calls &lt;code&gt;nova_discover&lt;/code&gt; and passes the results back in, which is what that tool is for.</p><h2>Limit</h2><p>Wall clock on one machine, not a distribution, and the budget is a gate rather than a guarantee: it is set roughly 4x above the measured cold start and roughly 3x below what the old path cost, so it catches a large regression and ignores machine noise. The warm decision is 0.005 s &amp;mdash; the cold cost is import and checkpoint load, not the scoring.</p>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>
