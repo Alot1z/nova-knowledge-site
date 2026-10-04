@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report 10: NOVA on NOVA</title>
+<meta name="description" content="NOVA arbitrating over its own execution surfaces, and how often it agrees with the world it was distilled from.">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../papers/index.html">Papers</a><a href="../../topics/index.html">Topics</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<p>NOVA applied to NOVA. The option set is NOVA&#x27;s own execution surfaces &amp;mdash; torch, ONNX, INT8, MCP, the installed skill, escalation &amp;mdash; built by probing this machine, not drawn from the generator.</p><p><strong>Hypothesis:</strong> On NOVA&#x27;s own execution surfaces -- a hand-built option set, not the generator&#x27;s -- the learned executive still agrees with world-analytic-v1 about which surface should serve a decision, so the self-application can be trusted to arbitrate without consulting the answer key.</p><h2>Agreement</h2><div class='scroll'><table><caption>Read from experiments/EXP-010-self-application.json</caption><thead><tr><th>Measure</th><th>Value</th></tr></thead><tbody><tr><td>Agreement with <code>world-analytic-v1</code></td><td>0.8229</td></tr><tr><td>Scenarios</td><td>192</td></tr><tr><td>Disagreements</td><td>34</td></tr><tr><td>Mean model confidence when wrong</td><td>0.6677</td></tr><tr><td>Mean world margin when wrong</td><td>0.0522</td></tr><tr><td>Agreement, supervised mode</td><td>0.8229</td></tr><tr><td>Agreement, unattended mode</td><td>0.8229</td></tr></tbody></table></div><h2>Where it disagrees</h2><div class='scroll'><table><caption>Every disagreement runs one way</caption><thead><tr><th>world pick -&gt; model pick</th><th>scenarios</th></tr></thead><tbody><tr><td>self:mcp -&gt; self:escalate</td><td>34</td></tr></tbody></table></div><h2>Result</h2><p>158/192 hand-built self-application scenarios match world-analytic-v1 (0.8229); disagreements concentrate in {&#x27;self:mcp -&gt; self:escalate&#x27;: 34}</p><h2>Decision</h2><p>SELF-APPLICATION USABLE WITH THE DISAGREEMENT PUBLISHED</p><h2>Limit</h2><p>This is a hand-built option set, so it measures something the headline accuracy does not: how the learned executive behaves when the options are not the ones it was trained on. The comparison lives in tools/selfhost_audit.py precisely because nova/selfhost.py never imports nova.world &amp;mdash; the self-application must not see the answer key. Escalated decisions are recorded unlabelled, so they cannot leak back into the training set as successes.</p>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>
