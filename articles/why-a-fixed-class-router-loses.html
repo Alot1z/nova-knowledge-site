@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why a fixed-class router loses to a per-instance scalar</title>
+<meta name="description" content="A two-boolean rule table that picks one of three strings scores 0.2045 accuracy and 0.5100 regret on the NOVA world. A 481,350-parameter model that emits one scalar per option scores 0.9005 and 0.0029. The gap is not intelligence — it is the shape of the output space.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[routing</span><span class="tag">baselines</span><span class="tag">arbitration</span><span class="tag">design]</span></p><h1 id="why-a-fixed-class-router-loses-to-a-per-instance-scalar">Why a fixed-class router loses to a per-instance scalar</h1>
+<p>The comparison that started this project was not against a neural network. It was against about forty lines of JavaScript.</p>
+<p>Jev&#x27;s kernel resolves a routing decision by evaluating two booleans and returning one of three fixed strings — <code>heavy-reasoning</code>, <code>jev-provider</code>, or <code>rule</code> — with <code>confidence: 1</code> and <code>reasonCode: &quot;RULE_MATCH&quot;</code>. That is a completely reasonable design for a router. It is fast, it is inspectable, and it never hallucinates a class that does not exist. Measured against NOVA&#x27;s world, on the same features, in the same split:</p>
+<div class='scroll'><table><thead><tr><th></th><th>Test accuracy</th><th>Test regret</th><th>Unseen regret</th><th>Test ECE</th></tr></thead><tbody><tr><td><code>jev_inspired</code></td><td>0.2045</td><td>0.5100</td><td>0.5658</td><td>0.7955</td></tr><tr><td>NOVA-s (481,350 params)</td><td>0.9005</td><td>0.0029</td><td>0.0019</td><td>0.0230</td></tr></tbody></table></div>
+<p>A 0.20 accuracy is not a near miss. It is the accuracy of a system that is right one time in five, on a world where the right answer exists and is computable.</p>
+<h2 id="where-the-loss-actually-happens">Where the loss actually happens</h2>
+<p>Three places, in order of severity.</p>
+<p><strong>The output space is closed.</strong> Two booleans partition into four regions. Three strings come out. Every option in the universe must land in one of three buckets, and the buckets are chosen by a human who has not yet seen the options. When the registry grows — a new MCP tool, a local embedding model, a second provider — the buckets do not grow with it. They get worse.</p>
+<p><strong>Interactions cannot be expressed.</strong> Cost pressure only matters when the budget is low. Freshness requirement only matters when queries are volatile. Escalation is right when several independent axes are wrong simultaneously and wrong when one is. A two-boolean rule table has no operator for &quot;these two conditions together&quot; except the one the author happened to write down. NOVA&#x27;s low-rank bilinear block exists for exactly this: <code>sᵀ(Vo)</code> collapsed to one scalar cannot express &quot;cost matters <em>only</em> when cost pressure is high, and separately risk matters <em>only</em> when blast radius is large&quot;. Sixty-four learned directions can.</p>
+<p><strong>Confidence is not a number, it is a constant.</strong> <code>confidence: 1</code> is not a strong claim about the world; it is a statement that the code took a branch. The consequence is visible in the ECE column: 0.7955, which is exactly the system&#x27;s own error rate restated as a calibration failure. You cannot calibrate it. There is no distribution over the alternatives to fit a temperature against. This is not a bug in the rule table — it is what a branch is.</p>
+<h2 id="what-the-fix-costs">What the fix costs</h2>
+<p>The fix is not &quot;use a bigger model&quot;. It is changing what the model emits.</p>
+<p>A classifier over <code>k</code> classes has <code>k</code> output neurons. Score every option and the output layer becomes <code>Linear(hidden, n_options)</code> — and that layer is keyed by <em>option identity</em>. The moment you register option #9, that layer is wrong and the model is retrained. You have rebuilt the fixed-class router with a matrix instead of an <code>if</code>.</p>
+<p>NOVA instead emits <strong>one scalar per option instance</strong>, computed from that option&#x27;s own 28-feature vector. There is no output layer keyed by identity anywhere in the model. Adding an option costs zero parameters. The load-bearing test is the unseen-template split, where the evaluation includes option templates that never appeared in training:</p>
+<div class='scroll'><table><thead><tr><th>Split</th><th>Accuracy</th><th>Regret</th></tr></thead><tbody><tr><td>Seen templates</td><td>0.9005</td><td>0.0029</td></tr><tr><td>Unseen templates</td><td>0.9101</td><td>0.0019</td></tr></tbody></table></div>
+<p>Accuracy does not degrade. It improves slightly. That is the signature of a model scoring by <em>properties</em> — cost, latency, risk, quality, availability, capability match — rather than by identity. A model that had memorized which options are good would fall apart here.</p>
+<h2 id="what-this-does-not-prove">What this does not prove</h2>
+<p>It does not prove a 481k-parameter model is the right choice for you. It proves that on a world with a computable optimum, learned per-instance scoring beats both hand-written rules and online bandits that get to learn from the same stream. Rule tables have a real advantage that this table does not show: they are readable by a human at 3am, they cannot drift, and they cost nothing to run. If your routing problem has three genuinely distinct regimes and you can name them, write the table. The moment the option registry becomes dynamic — which is the whole premise of an agent runtime — the table is a liability, because it cannot express an option you have not met.</p>
+<p>The honest framing is narrower than &quot;AI beats rules&quot;: <strong>when the candidate set is open and the conditions interact, a model that scores each candidate from its own properties generalizes to candidates it has never seen, and a model that classifies into fixed buckets does not.</strong></p>
+<p>The next question is the one every routing claim eventually has to answer: whose ground truth is this? NOVA&#x27;s is an analytic world with a known value function, which makes the comparison clean and the absolute numbers meaningless in production. That boundary is documented in the design document, in finding F24, and on the About page of this site, because a comparison presented without its ground truth is an advertisement.</p></article>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

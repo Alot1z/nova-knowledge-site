@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Articles</title>
+<meta name="description" content="Articles">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<div class="kicker">Writing</div><h1 style="font-size:32px">Articles</h1><p class="lede" style="color:var(--muted);max-width:72ch">7 pieces, each anchored to a measured result in <code>experiments/</code>.</p><a class="card" href="../articles/byte-reproducible-model-export.html">
+  <h3>Three bugs that made a verified export meaningless</h3>
+  <p>A Hugging Face export that silently loaded random weights, a verifier that compared a model against itself, and a safetensors header whose byte order was not stable. All three looked like success.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[packaging</span> <span class="tag">verification</span> <span class="tag">transformers</span> <span class="tag">safetensors</span> <span class="tag">testing]</span></div>
+</a><a class="card" href="../articles/calibration-is-the-product.html">
+  <h3>Calibration is the product, not a metric</h3>
+  <p>Every method in the NOVA head-to-head reports an ECE. Four of them got there by flattening their distribution to temperature 8.00. The two rule systems report confidence 1.0 and cannot be calibrated at all. Only one is both accurate and honest.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[calibration</span> <span class="tag">evaluation</span> <span class="tag">uncertainty</span> <span class="tag">routing]</span></div>
+</a><a class="card" href="../articles/how-the-paper-corpus-was-built.html">
+  <h3>How 1,476 real papers became a 238-page corpus</h3>
+  <p>The paper library on this site is an a reference index collection, not a writing exercise: recorded queries, recorded filters, recorded drop reasons, and a selection rule stated up front.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[provenance</span> <span class="tag">tooling</span> <span class="tag">corpus</span> <span class="tag">honesty]</span></div>
+</a><a class="card" href="../articles/measuring-bandits-against-a-static-model.html">
+  <h3>Beating the bandits without a feedback loop</h3>
+  <p>NOVA is a static model. It beat five contextual bandits that were learning online from the same stream. That result is worth more than the accuracy number — and it comes with three fairness rules that make it mean something.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[bandits</span> <span class="tag">evaluation</span> <span class="tag">fairness</span> <span class="tag">methodology]</span></div>
+</a><a class="card" href="../articles/the-context-addon.html">
+  <h3>The context addon: cutting a 40k-token context with zero parameters</h3>
+  <p>NOVA does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[context</span> <span class="tag">measurement</span> <span class="tag">endpoints</span> <span class="tag">design]</span></div>
+</a><a class="card" href="../articles/what-the-numbers-license.html">
+  <h3>What the numbers license, and what they do not</h3>
+  <p>NOVA&#x27;s 0.9005 accuracy is measured against an analytic world, not production traffic. This article draws the line between what the measurements establish, what they suggest, and what nobody has measured at all.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[honesty</span> <span class="tag">evaluation</span> <span class="tag">methodology</span> <span class="tag">priors]</span></div>
+</a><a class="card" href="../articles/why-a-fixed-class-router-loses.html">
+  <h3>Why a fixed-class router loses to a per-instance scalar</h3>
+  <p>A two-boolean rule table that picks one of three strings scores 0.2045 accuracy and 0.5100 regret on the NOVA world. A 481,350-parameter model that emits one scalar per option scores 0.9005 and 0.0029. The gap is not intelligence — it is the shape of the output space.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[routing</span> <span class="tag">baselines</span> <span class="tag">arbitration</span> <span class="tag">design]</span></div>
+</a>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

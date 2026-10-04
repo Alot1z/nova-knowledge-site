@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search</title>
+<meta name="description" content="Search">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<div class="kicker">Search</div>
+<h1 style="font-size:32px;letter-spacing:-.02em">Search everything</h1>
+<p class="lede" style="color:var(--muted);max-width:72ch">Client-side over the whole corpus:
+articles, pages and every paper. No server, no telemetry, no index to build.</p>
+<input class="search" id="q" placeholder="two or three words&hellip;" autocomplete="off">
+<ul class="results" id="list"></ul>
+<p class="count" id="n"></p>
+<script>
+const REC = fetch('index.json').then(r => r.json());
+const q = document.getElementById('q'), list = document.getElementById('list'),
+      n = document.getElementById('n');
+REC.then(recs => {
+  function run() {
+    const v = q.value.trim().toLowerCase();
+    const terms = v.split(/\s+/).filter(Boolean);
+    const hits = terms.length === 0 ? recs : recs.filter(r =>
+      terms.every(t => (r.t + ' ' + r.x).toLowerCase().includes(t)));
+    hits.sort((a, b) => a.k === b.k ? 0 : a.k === 'paper' ? 1 : -1);
+    list.innerHTML = hits.slice(0, 300).map(r =>
+      `<li><a href="${r.u}"><b>${r.t.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</b>` +
+      `<span>${r.k} &middot; ${r.x}</span></a></li>`).join('');
+    n.textContent = hits.length + ' match' + (hits.length === 1 ? '' : 'es') +
+      (hits.length > 300 ? ' (showing first 300)' : '');
+  }
+  q.addEventListener('input', run); run();
+});
+</script>
+
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

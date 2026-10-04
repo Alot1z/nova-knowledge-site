@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOVA — Neural Option-and-Value Arbitration: design</title>
+<meta name="description" content="The complete design of NOVA: a 481,350-parameter learned executive that scores dynamically registered options against current state, with no fixed output vocabulary. Architecture, contracts, losses, cascade, calibration, evaluation protocol, and non-goals.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[design</span><span class="tag">architecture</span><span class="tag">arbitration</span><span class="tag">routing</span><span class="tag">calibration]</span></p><h1 id="nova-neural-option-and-value-arbitration">NOVA: Neural Option-and-Value Arbitration</h1>
+<p><strong>Status.</strong> Implemented, measured, shipped. 145 tests green. Every number below is read from a file in <code>experiments/</code>; nothing is quoted from memory.</p>
+<p><strong>One sentence.</strong> NOVA is a learned arbiter that, given a 30-dimensional picture of what a machine is doing right now and an open-ended set of registered options, emits a scalar value for each option instance and picks the best one — without any fixed list of classes it is allowed to choose between.</p>
+<hr>
+<h2 id="1-the-problem-stated-precisely">1. The problem, stated precisely</h2>
+<p>An agent runtime accumulates capabilities: a cache lookup, a local 3B model, a deterministic function, an MCP tool, a sub-agent, a hosted endpoint, a human, an escalation path. The set is open. It changes while the program runs. A new MCP server appears; a local model is unloaded; a provider starts returning 503.</p>
+<p>Two designs are common and both fail in the same place.</p>
+<p><strong>A classifier over fixed classes.</strong> Map the situation onto <em>k</em> labels — <code>heavy</code>, <code>provider</code>, <code>rule</code> — with a rule table or a small model, then look up which option belongs to each label. This is what the Jev kernel does: two booleans in, one of three fixed strings out, and <code>confidence: 1</code> on every decision because a rule that fired cannot be unsure. It is fast, auditable and completely rigid. Add a class and you edit the vocabulary, retrain, and ship a new mapping table.</p>
+<p><strong>A hand-tuned scorer.</strong> Write down the conditions under which the cache is right, the conditions under which the online model is right, and the threshold at which you stop trusting the local one. This works until the conditions interact. <code>cost_pressure</code> only matters when <code>budget_remaining</code> is low; <code>freshness_requirement</code> only matters when <code>query_volatility</code> is high; escalation is right when several independent axes are wrong at once. Rule tables encode the axes you thought of and no others, and they degrade silently at the edges.</p>
+<p>NOVA&#x27;s claim is narrow and testable: <strong>a small model that reads the whole state vector at once beats both</strong>, because the interactions are learnable and the option set is not part of the model&#x27;s output space.</p>
+<hr>
+<h2 id="2-design-invariants">2. Design invariants</h2>
+<p>These are the rules the rest of the document defends. They are enforced in code where possible.</p>
+<ol><li><strong>No fixed output vocabulary.</strong> No output layer is indexed by option identity. The value head</li></ol>
+<p>emits a scalar per <em>option instance</em>, computed from that option&#x27;s own feature vector. Option identity enters only as features, never through an embedding table keyed by <code>Option.id</code>.</p>
+<ol><li><strong>Ground truth has one owner.</strong> All labels come from <code>nova/world.py</code>, an analytic world. The</li></ol>
+<p>model, the baselines and the bandits are statically forbidden from importing it; an AST-level test fails the build if they ever do.</p>
+<ol><li><strong>Availability is arithmetic, not opinion.</strong> An option is available when it is enabled <em>and</em></li></ol>
+<p><code>availability[&quot;available&quot;] &gt; 0.5</code>. Everything downstream reads that property.</p>
+<ol><li><strong>Novelty and uncertainty are different things.</strong> They get different heads. Folding them into</li></ol>
+<p>one score is the failure mode this design exists to avoid: a model that is confidently wrong about a novel state looks identical to a model that knows it is out of distribution.</p>
+<ol><li><strong>No network in the decision path.</strong> The decision model is local, deterministic given a</li></ol>
+<p>checkpoint, and makes no calls. The LLM surfaces it arbitrates over are somebody else&#x27;s problem, and they are optional.</p>
+<ol><li><strong>Every number is measured or labelled a prior.</strong> Cost and latency are priors until a caller</li></ol>
+<p>feeds back real telemetry.</p>
+<hr>
+<h2 id="3-contracts">3. Contracts</h2>
+<h3 id="3-1-option">3.1 <code>Option</code></h3>
+<p>A capability that <em>could</em> act. Opaque <code>id</code>, free-form <code>capabilities</code> and <code>requirements</code>, six normalized dicts (<code>cost</code>, <code>latency</code>, <code>risk</code>, <code>availability</code>, <code>quality</code>, <code>freshness</code>, <code>historical_success</code>), a descriptive <code>kind</code>, and an open <code>metadata</code> mapping.</p>
+<pre><code>Option(
+    id=&quot;esbuild:parse&quot;,
+    description=&quot;TypeScript/JS bundler front end&quot;,
+    capabilities=[&quot;parse&quot;, &quot;bundle&quot;],
+    requirements=[&quot;node&quot;],
+    cost={&quot;financial&quot;: 0.0, &quot;token&quot;: 0.0, &quot;energy&quot;: 0.01},
+    latency={&quot;p50&quot;: 0.15, &quot;p95&quot;: 0.40},
+    risk={&quot;base&quot;: 0.05, &quot;irreversible&quot;: 0.0},
+    availability={&quot;available&quot;: 1.0},
+    quality={&quot;self&quot;: 0.92, &quot;ceiling&quot;: 0.99},
+    kind=&quot;tool&quot;,
+)</code></pre>
+<p><code>kind</code> is a <em>description</em> for humans and for coarse feature flags. It is not an output class. Nothing in the decision path branches on it.</p>
+<h3 id="3-2-state">3.2 <code>State</code></h3>
+<p>Thirty normalized floats in <code>[0,1]</code>, grouped:</p>
+<div class='scroll'><table><thead><tr><th>Group</th><th>Fields</th><th>What it encodes</th></tr></thead><tbody><tr><td>Cache</td><td><code>exact_hit</code>, <code>sem_similarity</code>, <code>sem_age</code></td><td>whether a near-identical answer already exists</td></tr><tr><td>Freshness</td><td><code>query_volatility</code>, <code>freshness_requirement</code></td><td>how fast the answer goes stale</td></tr><tr><td>Resources</td><td><code>internet</code>, <code>net_latency</code>, <code>local_model</code>, <code>tool</code>, <code>agent</code>, <code>load</code></td><td>what is actually reachable</td></tr><tr><td>Pressure</td><td><code>budget_remaining</code>, <code>cost_pressure</code>, <code>latency_pressure</code></td><td>what it costs to be wrong about resources</td></tr><tr><td>Risk</td><td><code>task_risk</code>, <code>blast_radius</code>, <code>verification_required</code></td><td>what a bad outcome does</td></tr><tr><td>Task shape</td><td><code>step_count</code>, <code>ambiguity</code>, <code>complexity</code>, <code>novelty_prior</code>, <code>determinism_known</code></td><td>how hard the work is</td></tr><tr><td>History</td><td><code>repeat_rate</code>, <code>recent_failure_rate</code>, <code>prior_success_rate</code>, <code>escalations</code></td><td>what happened last time</td></tr><tr><td>Goal</td><td><code>goal_type</code>, <code>verification_weight</code>, <code>cost_sensitivity</code>, <code>latency_sensitivity</code></td><td>what the caller says it cares about</td></tr></tbody></table></div>
+<p><code>cost_sensitivity</code> and <code>latency_sensitivity</code> are <em>derived</em> in the feature projection rather than asked for directly, because a caller who reports <code>cost_pressure</code> and <code>budget_remaining</code> has already told you the sensitivity:</p>
+<pre><code>cost_sensitivity    = 0.5 * cost_pressure  + 0.5 * (1 - budget_remaining)
+latency_sensitivity = 0.6 * latency_pressure + 0.4 * net_latency</code></pre>
+<p>This is the only arithmetic in the projection. Everything else is a clip.</p>
+<h3 id="3-3-feature-projection">3.3 Feature projection</h3>
+<p><code>STATE_DIM = 30</code>, <code>OPTION_DIM = 28</code>. Both orders are canonical tuples — <code>STATE_ORDER</code>, <code>OPTION_ORDER</code> — read by the generator, the model, the baselines and the tests. A feature index means exactly one thing everywhere, which is what makes a head-to-head fair.</p>
+<p>The option vector&#x27;s last eight entries are coarse kind flags (<code>is_cache</code>, <code>is_deterministic</code>, <code>is_local</code>, <code>is_tool</code>, <code>is_agent</code>, <code>is_online</code>, <code>is_human</code>, <code>is_escalate</code>). They exist because option <em>types</em> genuinely correlate with value and the model should not have to rediscover that from 20 continuous numbers. They are inputs, never outputs.</p>
+<hr>
+<h2 id="4-architecture">4. Architecture</h2>
+<pre><code>state (30) ──► state_enc: 30→256→256 ─────────────┐
+                                                   │
+option (28) ─► option_enc: 28→128→128 ──┐         │   shared across every option,
+                                          ▼         ▼   so the encoder is permutation-equivariant
+                          bilin_u(s) ⊙ bilin_v(o) / √r      rank-64 interaction block
+                                          │
+        concat[s ; o ; interaction] ──────┘
+                    │
+              trunk 384→512→256  (GELU)
+                    │
+   ┌────────┬────────┬─────────┬────────┬────────┬──────────┐
+ value   cost    latency    risk     noise    novelty
+   │        │        │         │        │        │
+ the     aux.    aux.     aux.   uncertainty novelty (NOT
+decision supervision ...          signal   uncertainty)</code></pre>
+<p>Four decisions in here are worth defending.</p>
+<p><strong>The option encoder is shared.</strong> One <code>option_enc</code> is applied to every option. The model therefore cannot memorize an option&#x27;s position, and adding option #9 costs nothing in parameters. Permutation equivariance is structural, not regularized.</p>
+<p><strong>Interaction is a rank-64 block, not a scalar.</strong> The obvious shortcut is <code>score = f(s) + g(o)</code> plus a bilinear scalar <code>sᵀWo</code>. That collapses every interaction into one number, and one number cannot express &quot;cost matters <em>only</em> when cost pressure is high, and separately risk matters only when blast radius is large&quot;. <code>bilin_u(s) ⊙ bilin_v(o) / √r</code> produces <em>r</em> learned directions; the trunk can then give each direction its own non-linearity.</p>
+<p><strong>The value head is per-instance.</strong> <code>heads[&quot;value&quot;]</code> is <code>Linear(prev, 1)</code> applied to <code>(B, N, prev)</code>. There is no <code>Linear(prev, n_options)</code> anywhere in the model.</p>
+<p><strong>Six heads, six jobs.</strong> <code>value</code> is the arbitration logit. <code>cost</code>, <code>latency</code> and <code>risk</code> are auxiliary regressions on the option&#x27;s own expected cost, latency and risk — they force the shared trunk to represent those quantities instead of letting them vanish into the decision. <code>noise</code> regresses the squared probability error and is what feeds uncertainty. <code>novelty</code> regresses the state&#x27;s <code>novelty_prior</code> and is what feeds the out-of-distribution check. Keeping them separate is what makes &quot;I have never seen a state like this&quot; distinguishable from &quot;I am confident and wrong.&quot;</p>
+<h3 id="sizes">Sizes</h3>
+<div class='scroll'><table><thead><tr><th>Preset</th><th>state dim</th><th>option dim</th><th>rank</th><th>trunk</th><th>head dim</th><th>parameters</th><th>fp32</th><th>int8</th><th>train s</th><th>test acc</th><th>regret</th></tr></thead><tbody><tr><td><code>xs</code></td><td>128</td><td>64</td><td>32</td><td>256, 128</td><td>128</td><td>123,942</td><td>0.47 MiB</td><td>0.12 MiB</td><td>62.4</td><td>0.8666</td><td>0.00653</td></tr><tr><td><code>s</code></td><td>256</td><td>128</td><td>64</td><td>512, 256</td><td>256</td><td><strong>481,350</strong></td><td>1.84 MiB</td><td>0.46 MiB</td><td>102.9</td><td>0.8896</td><td>0.00319</td></tr><tr><td><code>1m</code></td><td>384</td><td>192</td><td>96</td><td>768, 320</td><td>320</td><td>1,022,630</td><td>3.90 MiB</td><td>0.98 MiB</td><td>127.9</td><td>0.8903</td><td>0.00333</td></tr><tr><td><code>5m</code></td><td>640</td><td>320</td><td>160</td><td>2048, 1024, 512</td><td>512</td><td>5,617,702</td><td>21.43 MiB</td><td>5.36 MiB</td><td>581.5</td><td>0.9052</td><td>0.00252</td></tr></tbody></table></div>
+<p>Read that table honestly: <code>5m</code> is the most accurate, and it costs 12x the parameters and 5.7x the training time of <code>s</code> for the difference between 0.9052 and 0.8896. The recorded decision was <em>&quot;5m wins on accuracy but exceeds the 1M efficiency target — document&quot;</em>, the Pareto set over regret is <code>s, 1m, 5m</code>, and <code>s</code> shipped as the default. <code>s</code> is a deliberate trade of the last accuracy points for a 1.84 MiB artifact that loads anywhere.</p>
+<p><code>xs</code> is worth noting too: 123,942 parameters, 0.47 MiB, 0.8666 accuracy. It still beats every static baseline in the head-to-head by a wide margin. If the constraint is a browser or a phone, <code>xs</code> is the honest recommendation.</p>
+<p>INT8 was measured and rejected: EXP-005 recorded <em>&quot;REJECT INT8 — accuracy loss exceeds 1%; ship fp32 ONNX&quot;</em>. The int8 sizes above are listed because the sweep computed them, not because they are recommended.</p>
+<hr>
+<h2 id="5-decision">5. Decision</h2>
+<pre><code>value = heads[&quot;value&quot;](...)                    # (B, N) — one scalar per option
+value = masked_fill(value, ~available, -1e9)  # unavailable options cannot be chosen
+probs = softmax(value / temperature)
+chosen = argmax(probs)
+confidence = max(probs)</code></pre>
+<p><code>temperature = 0.10</code> was fitted on a held-out split by minimizing NLL, not guessed.</p>
+<p>The <code>-1e9</code> mask is applied by <code>masked_logits</code>, and every caller goes through it. An option with <code>enabled = False</code> is not &quot;bad&quot;, it is not on the table; encoding that as a very negative logit instead of a filter means a disabled option cannot leak probability mass into the distribution and make every other option look less certain than it is.</p>
+<h3 id="reason-codes">Reason codes</h3>
+<p>The decision returns a structured result: <code>selected_option</code>, <code>option_scores</code>, <code>confidence</code>, plus per-head values for the chosen option. A natural-language reason is available and explicitly optional — the structured result is primary, because a reason string is the part most likely to be wrong and the part least likely to be read.</p>
+<hr>
+<h2 id="6-the-cascade">6. The cascade</h2>
+<p>Before the model runs, cheap deterministic stages get a chance:</p>
+<ol><li><strong>Exact cache hit.</strong> A byte-identical request with an answer already stored. No scoring.</li><li><strong>Semantic candidates.</strong> Near-neighbours above a similarity floor, with their ages.</li><li><strong>NOVA.</strong> Everything the cache cannot answer.</li><li><strong>Act.</strong> Execute the chosen option.</li></ol>
+<p>Each stage records telemetry, which is the only way a prior becomes an observation. A cache hit updates freshness and hit-rate; an executed option&#x27;s latency updates the latency estimate; a failure updates <code>historical_success</code>. The registry is where this lives, and the SDK exposes it as <code>record_outcome</code>, <code>record_latency</code>, <code>record_health</code>.</p>
+<p>This is the honest boundary of the whole project: <strong>an option&#x27;s cost and latency are priors until a real caller feeds back measurements.</strong> Every &quot;NOVA saves you X%&quot; claim that cannot point at a populated telemetry store is guessing.</p>
+<hr>
+<h2 id="7-the-context-addon">7. The context addon</h2>
+<p>NOVA scores options. It does not read, parse, summarize or compress text — there is no text model in it. Producing a smaller context is a different job, so it lives in a different module, <code>nova/context.py</code>, with its own measurement.</p>
+<h3 id="7-1-constraints">7.1 Constraints</h3>
+<ul><li><strong>Zero added parameters.</strong> The default executor is a deterministic planner, not a network.</li></ul>
+<p>&quot;Small model size&quot; is satisfied literally.</p>
+<ul><li><strong>Stdlib only.</strong> A test asserts that importing <code>nova.context</code> pulls in no torch, no numpy, no</li></ul>
+<p>transformers. It works in a fresh clone on a machine with nothing installed.</p>
+<ul><li><strong>Local and online, one interface.</strong> <code>EndpointSummarizer</code> speaks OpenAI</li></ul>
+<p><code>/chat/completions</code>, which is what Ollama, llama.cpp&#x27;s server, LM Studio, vLLM, OpenAI, OpenRouter, Together and Groq all expose. The URL decides which; the plan, the accounting and the report do not change.</p>
+<ul><li><strong>The endpoint can only shrink.</strong> It is asked to rewrite the text the planner already</li></ul>
+<p>selected. It cannot widen the budget or resurrect dropped material.</p>
+<h3 id="7-2-the-planner">7.2 The planner</h3>
+<p>Split each item into sentence-or-line units. Score every unit:</p>
+<pre><code>score = 3.0·norm(query_hits) + 2.4·[any query hit]      relevance, flat bonus on any hit
+      + structural_bonus                                 paths, identifiers, error codes,
+                                                         &quot;must/never/required&quot;, questions
+      + 0.6·recency                                      later material, gently
+      + 0.8·framing                                      first and last units of each item
+      + 6.0·pinned                                       pinned items are non-negotiable
+      + 0.5·priority                                     caller-supplied
+      + spread                                           do not spend the whole budget on one file</code></pre>
+<p>Query weights are IDF over the items being planned, so a term that appears in every file cannot dominate the score. Selection is greedy by score under a token budget; the <em>rendered</em> text is then reassembled in original order, because a plan that scrambles sentences is worse than no plan.</p>
+<p>Every decision carries a reason string: <code>query-or-structural-match</code>, <code>budget-selected</code>, <code>below-budget</code>. An operator can audit why a line survived.</p>
+<p>The per-item unit cap defaults to <strong>off</strong>, and when a caller sets one, the truncation is reported in <code>plan.report()[&quot;warnings&quot;]</code>. An earlier version capped silently at 24 units per item; that made <code>tokens_before</code> describe a truncated view and turned every reduction ratio computed from it into a fiction. Finding that is finding F25 in the experiment log.</p>
+<h3 id="7-3-measurement">7.3 Measurement</h3>
+<p><code>python -m nova.compact_experiment</code> plans ten reader-shaped queries over this repository&#x27;s own docs and code at four budget fractions, and records the reduction, a retention probe, planning latency and peak traced memory.</p>
+<p>The retention probe is the part that makes a savings claim checkable: probe terms are drawn from the corpus text, and the report says how many of them survived the plan. A reduction ratio with no retention number next to it is a number about nothing.</p>
+<p>Measured on a 40,090-token corpus (tiktoken, exact):</p>
+<div class='scroll'><table><thead><tr><th>Budget</th><th>Mean reduction</th><th>Mean probe retention</th><th>Worst retention</th><th>Mean plan time</th></tr></thead><tbody><tr><td>100%</td><td>0.0%</td><td>100%</td><td>100%</td><td>0.41 s</td></tr><tr><td>50%</td><td>50.0%</td><td>91.7%</td><td>50%</td><td>0.43 s</td></tr><tr><td>25%</td><td>75.0%</td><td>89.2%</td><td>50%</td><td>0.46 s</td></tr><tr><td>12.5%</td><td>87.5%</td><td>89.2%</td><td>50%</td><td>0.45 s</td></tr></tbody></table></div>
+<p>The worst case is a real finding, not a rounding artifact: on the calibration query the planner keeps 2 of 4 probe terms (<code>ECE</code>, <code>NLL</code>, <code>Brier</code> are rarer strings than the surrounding prose), because extractive selection can only keep sentences that exist. A query whose answer lives in one buried sentence is exactly where an LLM summarizer earns its cost — which is why <code>EndpointSummarizer</code> exists and why the experiment probes for a live endpoint and records what it found.</p>
+<hr>
+<h2 id="8-training">8. Training</h2>
+<p>Labels come from the analytic world. The teacher knows the value of every option in every state; the student sees the state and the options.</p>
+<ul><li><strong>Value loss:</strong> cross-entropy over the teacher&#x27;s argmax, plus a listwise term over the full</li></ul>
+<p>teacher score vector, so the model learns the <em>ordering</em> rather than only the winner. The ablation in EXP-002 measured the listwise term on its own at 0.90995 accuracy / 0.00255 regret / ECE 0.02436 — better accuracy than the shipped cross-entropy configuration, with marginally worse calibration.</p>
+<ul><li><strong>Auxiliary heads:</strong> MSE on cost, latency, risk, noise and novelty against world labels.</li><li><strong>Temperature is fitted after training</strong>, on held-out data, by minimizing NLL.</li><li><strong>Unseen-template holdout:</strong> the evaluation includes option templates the model never saw in</li></ul>
+<p>training. This is the load-bearing test of the no-fixed-vocabulary invariant. Test accuracy on seen templates is 0.9005 with regret 0.0029; on unseen templates accuracy is 0.9101 with regret 0.0019. Accuracy does not degrade — it improves slightly — which is the signature of a model scoring by properties rather than by identity.</p>
+<hr>
+<h2 id="9-evaluation-protocol">9. Evaluation protocol</h2>
+<p>Baselines get the same features, the same budget, the same telemetry feed, and the same split.</p>
+<p><strong>Six static baselines</strong> (EXP-006): <code>jev_inspired</code>, <code>rule</code>, <code>laya_inspired</code>, <code>keyword</code>, <code>cosine</code>, <code>linear</code> (the same 87 features through a logistic model, 87 parameters).</p>
+<p><strong>Five bandits</strong> (EXP-007): <code>linucb_disjoint</code>, <code>linucb_disjoint_greedy</code>, <code>linucb_shared</code>, <code>neural_bandit_t</code>, <code>neural_bandit_mean</code>. Bandits normally win by adapting online; NOVA is static and still wins every metric on both splits.</p>
+<div class='scroll'><table><thead><tr><th>Method</th><th>Test acc</th><th>Test regret</th><th>Unseen regret</th><th>Test ECE</th><th>Fitted T</th></tr></thead><tbody><tr><td><strong>NOVA-s</strong></td><td><strong>0.9005</strong></td><td><strong>0.0029</strong></td><td><strong>0.0019</strong></td><td><strong>0.0230</strong></td><td>0.10</td></tr><tr><td>neural_bandit_t / _mean</td><td>0.8246</td><td>0.0124</td><td>0.0144</td><td>0.0356</td><td>2.10</td></tr><tr><td>linucb_disjoint</td><td>0.7434</td><td>0.0252</td><td>0.0257</td><td>0.0215</td><td>0.20</td></tr><tr><td>linucb_disjoint_greedy</td><td>0.7393</td><td>0.0247</td><td>0.0249</td><td>0.0213</td><td>0.20</td></tr><tr><td>linucb_shared</td><td>0.7102</td><td>0.0404</td><td>0.0440</td><td>0.0201</td><td>0.20</td></tr><tr><td>linear (87 params)</td><td>0.6540</td><td>0.0325</td><td>0.0350</td><td>0.4150</td><td>8.00</td></tr><tr><td>rule</td><td>0.5267</td><td>0.1152</td><td>0.1336</td><td>0.2917</td><td>8.00</td></tr><tr><td>laya_inspired</td><td>0.4638</td><td>0.2150</td><td>0.2672</td><td>0.5362</td><td>0.05</td></tr><tr><td>keyword</td><td>0.3649</td><td>0.2016</td><td>0.1938</td><td>0.1418</td><td>8.00</td></tr><tr><td>jev_inspired</td><td>0.2045</td><td>0.5100</td><td>0.5658</td><td>0.7955</td><td>0.05</td></tr><tr><td>cosine</td><td>0.1280</td><td>0.5285</td><td>0.5728</td><td>0.0851</td><td>8.00</td></tr></tbody></table></div>
+<p>Metrics reported for every method: accuracy, top-2 accuracy, NLL, Brier, ECE, false-confidence rate, mean regret, p90 regret, cost/latency/quality/risk regret decomposition, temperature, and the OOD-vs-ID accuracy split.</p>
+<p><strong>Two splits.</strong> Seen templates and unseen templates. The second is the one that matters for the central claim.</p>
+<h3 id="what-the-numbers-do-and-do-not-say">What the numbers do and do not say</h3>
+<p>NOVA wins on every metric on both splits: 0.9005 / 0.0029 on seen, 0.9101 / 0.0019 on unseen, against 0.2045 for the Jev-inspired rule table and 0.8246 for the best bandit.</p>
+<p>They do <strong>not</strong> say NOVA will route your production agent 40% cheaper. Ground truth here is <code>world-analytic-v1</code>, an analytic world with a known value function. NOVA is a ranking model on that world, and the accuracy number measures ranking fidelity against a teacher, not task success in a deployment. The honest summary is: <strong>on a world with a known optimum, a 481k-parameter learned arbiter finds the optimum more reliably than eleven hand-built and learned alternatives, including online bandits that learn from the same stream it was trained on.</strong> Whether that transfers to a real traffic mix is an empirical question that requires production telemetry, which is exactly what <code>record_outcome</code> exists to collect.</p>
+<p>One more limit worth stating: the size sweep&#x27;s numbers (§4) and the head-to-head&#x27;s numbers (§9) are from different runs with different fitted temperatures (<code>s</code> scored 0.8896 at <code>T = 0.15</code> in the sweep, 0.9005 at <code>T = 0.10</code> in the head-to-head). Compare within a table, not across them.</p>
+<hr>
+<h2 id="10-calibration">10. Calibration</h2>
+<p>Confidence is the model&#x27;s own probability, so it has to mean something.</p>
+<p>Temperature scaling, fitted on held-out data, lands at <code>T = 0.10</code>. Resulting ECE is 0.0230 on the test split and 0.0188 on unseen templates; false-confidence rate is 0.0291.</p>
+<p>Two of the baselines are diagnostic rather than merely weak. <code>jev_inspired</code> and <code>laya_inspired</code> are rule systems: they run at <code>T = 0.05</code> and report <code>mean_confidence = 1.0</code>, because a rule that fired has no distribution over the alternatives to be confident <em>about</em>. Their ECE therefore equals their false-confidence rate by construction — 0.7955 and 0.5362 respectively, each of them exactly its own error rate restated. A system that reports 100% confidence while being wrong 80% of the time cannot be calibrated, because it has no uncertainty model to calibrate.</p>
+<p>The scored baselines (<code>rule</code>, <code>keyword</code>, <code>cosine</code>, <code>linear</code>) are a different story: they calibrate a temperature of 8.00, which flattens their distributions until ECE looks acceptable (0.085 to 0.415) while accuracy stays poor. Flattening is not the same as knowing. NOVA&#x27;s ECE of 0.0230 comes with 0.9005 accuracy; theirs comes with 0.1280 to 0.6540.</p>
+<hr>
+<h2 id="11-packaging">11. Packaging</h2>
+<p><code>dist/nova-s-hf/</code> is a complete, self-contained Hugging Face model: <code>config.json</code>, <code>configuration_nova.py</code>, <code>modeling_nova.py</code>, <code>model.safetensors</code>, <code>preprocessor_config.json</code>, <code>README.md</code>. Six files, 1,942,077 bytes — 1.85 MiB. A consumer needs that directory and nothing else: no checkpoint, no dataset, no training run, no network.</p>
+<p>Three properties are verified rather than asserted:</p>
+<ul><li><strong>27/27 tensors</strong> match the NovaCore checkpoint.</li><li><strong><code>max_abs_diff_vs_novacore = 0.0</code></strong> on all six heads; <code>agreement_with_novacore = 1.0</code>.</li><li><strong>Byte-determinism.</strong> Exporting twice produces identical bytes:</li></ul>
+<p><code>model.safetensors</code> sha256 <code>5bcd0016…</code>, package sha256 <code>b65ebbce…</code>. This needed work: the safetensors header is emitted from a hash map whose iteration order is not stable, so the exporter sorts tensors and rewrites the header to a canonical fixed point.</p>
+<p>That last one exists because a verifier that compared a model against itself reported a difference of exactly <code>0.0</code> forever. The reference is now rebuilt from the checkpoint <em>file</em> via safetensors, and a test asserts that a self-referencing comparison is trivially zero — see findings F21 and F22.</p>
+<p>One Hugging Face trap is worth recording: <code>NovaModel.trunk</code> must stay a bare <code>nn.Sequential</code> with <code>trunk.0.weight</code>-style keys. Wrapping it in one extra <code>nn.Sequential</code> produces plausible looking checkpoint keys that <code>from_pretrained</code> silently ignores, and the model then loads randomly initialized weights without raising. Finding F20.</p>
+<hr>
+<h2 id="12-interfaces">12. Interfaces</h2>
+<pre><code>from nova.sdk import Nova
+
+nova = Nova.load()                       # artifacts/nova-s.pt
+nova.register_options([
+    {&quot;id&quot;: &quot;ripgrep&quot;, &quot;kind&quot;: &quot;tool&quot;, &quot;capabilities&quot;: [&quot;search&quot;],
+     &quot;cost&quot;: {&quot;financial&quot;: 0.0}, &quot;latency&quot;: {&quot;p50&quot;: 0.05}},
+    {&quot;id&quot;: &quot;escalate:human&quot;, &quot;kind&quot;: &quot;escalate&quot;},
+])
+decision = nova.decide(state={...})      # JSON-safe dict
+nova.record_outcome(&quot;ripgrep&quot;, success=True)
+print(nova.telemetry())</code></pre>
+<p>Registration rejects unknown option fields and a missing <code>id</code> rather than silently ignoring them, because a typo&#x27;d field in an MCP-provided option is the kind of thing that produces a decision which looks reasoned and is not.</p>
+<p>Surfaces built on the SDK:</p>
+<ul><li><strong>stdio MCP server</strong> — <code>python -m nova.mcp_server</code>, tools <code>nova_decide</code>, <code>nova_discover</code>,</li></ul>
+<p><code>nova_telemetry</code>.</p>
+<ul><li><strong>Hugging Face</strong> — the 1.85 MiB package above, loadable with <code>transformers</code> alone.</li><li><strong>Context addon</strong> — <code>python -m nova.context report --file X --budget 800</code>.</li></ul>
+<hr>
+<h2 id="13-non-goals">13. Non-goals</h2>
+<p>Stated so that nobody has to infer them.</p>
+<ul><li><strong>NOVA is not a language model.</strong> It does not generate text, parse text, summarize text or</li></ul>
+<p>embed text. Its inputs are 30 + 28 floats per option. Anything that reads text belongs in another component.</p>
+<ul><li><strong>NOVA does not compact context.</strong> The cascade&#x27;s cache stages avoid redundant work; the</li></ul>
+<p>context addon in §7 does the shrinking. Conflating them is how a router ends up making a savings claim nobody measured.</p>
+<ul><li><strong>NOVA does not replace your agent loop.</strong> It picks one option per decision and hands back</li></ul>
+<p>telemetry. Planning, retries and verification stay where they are.</p>
+<ul><li><strong>NOVA does not optimize tokens yet.</strong> Gate A11 stays open until end-to-end savings are</li></ul>
+<p>measured against production telemetry. The addon&#x27;s §7.3 numbers are about a context planner, not about an agent&#x27;s bill.</p>
+<ul><li><strong>NOVA is not a general RL agent.</strong> It is a supervised arbiter distilled from an analytic</li></ul>
+<p>teacher. It does not explore, and it does not improve from its own decisions — it improves when a caller feeds outcomes back and the model is retrained.</p>
+<hr>
+<h2 id="14-where-this-could-go">14. Where this could go</h2>
+<ul><li><strong>Replace the analytic teacher with real traces</strong> the moment they exist. Every number in §9</li></ul>
+<p>would then describe a distribution nobody hand-designed.</p>
+<ul><li><strong>Online adaptation.</strong> The bandits in EXP-007 are the natural comparison for this: NOVA beats</li></ul>
+<p>them <em>statically</em>, which means a properly adapted NOVA should beat them further.</p>
+<ul><li><strong>Calibrated abstention.</strong> The <code>noise</code> head already produces an uncertainty signal; turning it</li></ul>
+<p>into a first-class &quot;I don&#x27;t know&quot; that routes to a human is the obvious next behaviour, and the <code>human</code> and <code>escalate</code> option kinds are already registered for it.</p>
+<ul><li><strong>Multi-step value.</strong> <code>value</code> currently scores the next action. Scoring a <em>plan</em> of options</li></ul>
+<p>needs a different label and a bigger world.</p>
+<hr>
+<h2 id="15-finding-index">15. Finding index</h2>
+<div class='scroll'><table><thead><tr><th>ID</th><th>What broke</th><th>Why it mattered</th></tr></thead><tbody><tr><td>F20</td><td>HF <code>trunk</code> nested one level too deep</td><td><code>from_pretrained</code> silently loaded random weights</td></tr><tr><td>F21</td><td><code>verify()</code> compared the model to its own <code>state_dict</code></td><td>A &quot;0.0 difference&quot; that meant nothing</td></tr><tr><td>F22</td><td>safetensors header order was unstable</td><td>Export was not byte-reproducible</td></tr><tr><td>F23</td><td><code>report()</code> iterated the option dict, not <code>.values()</code></td><td>Telemetry crashed for any non-empty registry; survived 86 tests because nothing called it</td></tr><tr><td>F24</td><td>Documented the honest boundary of &quot;better than Jev&quot;</td><td>A ranking claim on an analytic world is not a production claim</td></tr><tr><td>F25</td><td>Context planner capped units per item silently</td><td>Reduction ratios were computed from a truncated view</td></tr></tbody></table></div></article>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

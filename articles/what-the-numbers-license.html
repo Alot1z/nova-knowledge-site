@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What the numbers license, and what they do not</title>
+<meta name="description" content="NOVA&#x27;s 0.9005 accuracy is measured against an analytic world, not production traffic. This article draws the line between what the measurements establish, what they suggest, and what nobody has measured at all.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[honesty</span><span class="tag">evaluation</span><span class="tag">methodology</span><span class="tag">priors]</span></p><h1 id="what-the-numbers-license-and-what-they-do-not">What the numbers license, and what they do not</h1>
+<p>There is a particular kind of dishonesty that is easy to commit accidentally: measuring something real, then writing about it in a way that implies a different measurement.</p>
+<p>NOVA&#x27;s numbers are real. They are also narrower than the sentence people usually want to write about them. Here is the boundary, drawn explicitly.</p>
+<h2 id="what-is-measured">What is measured</h2>
+<p><strong>Decision quality on <code>world-analytic-v1</code>.</strong> The ground truth is an analytic world with a known value function. Every option in every state has a computable true value, so &quot;accuracy&quot; and &quot;regret&quot; have exact definitions and the numbers mean what they say: how often the arbiter picks an optimal option, and how much value it gives up when it does not.</p>
+<p>Measured: 0.9005 accuracy, 0.0029 mean regret, 0.9885 top-2, 0.274 NLL, 0.2219 Brier, 0.0230 ECE at a fitted temperature of 0.10. On unseen option templates: 0.9101 accuracy, 0.0019 regret.</p>
+<p><strong>Calibration on that split.</strong> Temperature is fitted on held-out data by minimizing NLL, not chosen by hand. The false-confidence rate is 0.0291.</p>
+<p><strong>Transfer across option templates.</strong> The unseen-template split is the load-bearing test of the no-fixed-vocabulary invariant, and accuracy holds or improves there.</p>
+<p><strong>The context addon&#x27;s reduction and its cost.</strong> On a 40,090-token corpus counted with an exact tokenizer: a 25% budget produces a 75.0% mean reduction at 89.2% mean probe retention, worst case 50%, planning in 0.46 s mean with zero added parameters and 2.7 MB peak traced memory.</p>
+<p><strong>Export fidelity.</strong> 27/27 tensors matched, <code>max_abs_diff_vs_novacore = 0.0</code> on all six heads, <code>agreement_with_novacore = 1.0</code>, byte-identical across repeated exports.</p>
+<h2 id="what-is-suggested">What is suggested</h2>
+<p>That the accuracy/regret relationship transfers to a world nobody hand-designed. The argument is structural rather than empirical — the model scores options from their properties, not their identities, and it holds up on templates it has never seen. Structural arguments are weaker than measurements, and this one has never been tested on real traffic.</p>
+<p>That the 481,350-parameter <code>s</code> preset is the right default. It is a judgement, not a result. The size sweep says <code>5m</code> is more accurate (0.9052 vs 0.8896 in the sweep) and 12x larger. <code>s</code> shipped because 1.84 MiB is worth more than 1.5 accuracy points to most people. If your constraint is a browser, <code>xs</code> at 123,942 parameters and 0.8666 accuracy still beats every static baseline by a wide margin.</p>
+<h2 id="what-is-not-measured-at-all">What is not measured at all</h2>
+<p><strong>Token savings.</strong> This is the big one. Nobody has run NOVA in a real agent and measured what it saved, because there is no real agent with populated telemetry behind it. An option&#x27;s cost and latency are <strong>priors</strong> — numbers someone typed into a registration dict — until a caller feeds back real measurements through <code>record_outcome</code>, <code>record_latency</code> and <code>record_health</code>. Gate A11 in the spec stays open for exactly this reason.</p>
+<p>Anyone claiming &quot;NOVA saves you 40% of tokens&quot; today is guessing. The 75% reduction in the context addon is a different measurement about a different component: it says a deterministic extractive planner, given a 25% budget, keeps 89% of the probe terms in this repository&#x27;s own prose. It says nothing about anyone&#x27;s bill.</p>
+<p><strong>Task success.</strong> Accuracy against an analytic value function is not task success in a deployment. A production agent can pick the optimal option by NOVA&#x27;s metric and still fail, because the value function was a fiction.</p>
+<p><strong>Transfer across traffic mixes.</strong> No test-time distribution shift was measured. <code>world-analytic-v1</code> is stationary by construction, which is precisely the condition a contextual bandit literature tells you to be suspicious of.</p>
+<p><strong>Latency of the decision path under load.</strong> Measured only as the mean wall-clock of a single plan. No p99, no concurrency.</p>
+<h2 id="why-bother-being-this-explicit">Why bother being this explicit</h2>
+<p>Three reasons, one of them practical.</p>
+<p><strong>Because a claim that outruns its evidence is a liability.</strong> A router that promises 40% token savings and delivers 3% does not merely disappoint; it discredits the 0.9005 accuracy too, because a reader who caught one overstatement stops reading the rest.</p>
+<p><strong>Because the priors are load-bearing.</strong> The whole cost-aware story in NOVA — cost head, latency head, cost pressure in the state vector, the decomposition of regret into cost/latency/quality/risk components — is inert until telemetry arrives. The architecture is ready for the measurement. The measurement has not happened. Saying so is more useful than implying otherwise.</p>
+<p><strong>Because there is a good alternative.</strong> Every experiment file in <code>experiments/</code> carries a <code>decision</code> field written at the time it ran, including the ones that say no:</p>
+<ul><li>EXP-005: <code>REJECT INT8 -- accuracy loss exceeds 1%; ship fp32 ONNX</code></li><li>EXP-002: <code>5m wins on accuracy but exceeds the 1M efficiency target -- document</code></li><li>EXP-008: the byte-reproducibility caveat, written after the fact</li></ul>
+<p>And there is a row in the log for the day the HF export silently loaded random weights (F20), the row for the verifier that compared a model against itself and reported a perfect zero forever (F21), and the row for the telemetry report that crashed for any non-empty registry while 86 tests passed because nothing called it (F23). A project that only records its wins is not measuring; it is marketing.</p>
+<h2 id="the-one-line-version">The one-line version</h2>
+<p>NOVA is a ranking model that beats eleven alternatives on a world with a known optimum, and it is ready for a real world the moment one feeds it real telemetry. Everything downstream of that sentence is currently a prior.</p></article>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

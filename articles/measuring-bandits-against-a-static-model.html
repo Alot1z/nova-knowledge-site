@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beating the bandits without a feedback loop</title>
+<meta name="description" content="NOVA is a static model. It beat five contextual bandits that were learning online from the same stream. That result is worth more than the accuracy number — and it comes with three fairness rules that make it mean something.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[bandits</span><span class="tag">evaluation</span><span class="tag">fairness</span><span class="tag">methodology]</span></p><h1 id="beating-the-bandits-without-a-feedback-loop">Beating the bandits without a feedback loop</h1>
+<p>The head-to-head that should have gone the other way is the bandit comparison.</p>
+<p>Contextual bandits exist to solve exactly this problem: pick among arms, observe the reward, update. They get to learn from the stream while they are being evaluated. NOVA is static — one checkpoint, no online update, no exploration — and it won:</p>
+<div class='scroll'><table><thead><tr><th>Method</th><th>Test acc</th><th>Test regret</th><th>Unseen regret</th><th>Test ECE</th><th>T</th></tr></thead><tbody><tr><td><strong>NOVA-s</strong></td><td><strong>0.9005</strong></td><td><strong>0.0029</strong></td><td><strong>0.0019</strong></td><td>0.0230</td><td>0.10</td></tr><tr><td>neural_bandit_t / _mean</td><td>0.8246</td><td>0.0124</td><td>0.0144</td><td>0.0356</td><td>2.10</td></tr><tr><td>linucb_disjoint</td><td>0.7434</td><td>0.0252</td><td>0.0257</td><td>0.0215</td><td>0.20</td></tr><tr><td>linucb_disjoint_greedy</td><td>0.7393</td><td>0.0247</td><td>0.0249</td><td>0.0213</td><td>0.20</td></tr><tr><td>linucb_shared</td><td>0.7102</td><td>0.0404</td><td>0.0440</td><td>0.0201</td><td>0.20</td></tr></tbody></table></div>
+<p>The recorded decision was <code>NOVA WINS 5/5 on test regret, 5/5 on unseen regret, 5/5 on test accuracy</code>. Every regret comparison, on both splits, against every bandit.</p>
+<h2 id="why-this-is-the-interesting-result">Why this is the interesting result</h2>
+<p>A static model beating an adaptive one is not the usual story, and the usual explanation — &quot;the bandit had not converged&quot; — is weak here. LinUCB variants are near-optimal in the linear setting they are specified for, and this is a linear reward model. They had the whole stream.</p>
+<p>The explanation is structural. A disjoint linear bandit maintains an estimate per arm and spends its exploration budget discovering arm-specific reward parameters. That works when arms are fixed and rewards are linear in known features. It degrades on two things this world punishes:</p>
+<p><strong>Arm identity is the wrong parameterisation.</strong> The bandit learns &quot;arm 7 is good in this region&quot;. NOVA learns &quot;an arm with this cost/latency/risk/quality/availability profile is good in this state shape&quot;. The unseen-template split separates these: bandit regret rises from 0.0252 to 0.0257 and 0.0124 to 0.0144 across the split, while NOVA&#x27;s <em>falls</em>, from 0.0029 to 0.0019. A model keyed by identity has to meet a new identity; a model keyed by properties does not.</p>
+<p><strong>Exploration is a cost the world charges you.</strong> <code>linucb_disjoint_greedy</code> and <code>linucb_disjoint</code> differ by roughly one exploration term and land within 0.0005 regret of each other. At small regret that difference is noise; it tells you the exploration tuning is not where the loss is. The loss is in the parameterisation.</p>
+<h2 id="three-fairness-rules-written-before-the-run">Three fairness rules, written before the run</h2>
+<p>An adaptive-versus-static comparison is easy to rig by accident, so the rules were written into the experiment file:</p>
+<ol><li><strong>Same features.</strong> Every bandit sees the same 30-dimensional state and 28-dimensional option</li></ol>
+<p>vectors as the full model. A bandit given only aggregates should lose, and would have.</p>
+<ol><li><strong>Same telemetry.</strong> Every method records outcome, latency and health through the same registry</li></ol>
+<p>feed. No method got a private, richer signal stream.</p>
+<ol><li><strong>Same split, same temperature protocol.</strong> Temperature is fitted on held-out data for every</li></ol>
+<p>method, not hand-set for the model under test and left alone for the baselines.</p>
+<p>Rule 1 is the one that is most often quietly violated. &quot;We compared a bandit to a transformer&quot; usually means &quot;we compared a bandit with a 4-feature summary to a transformer with the full state&quot;. The interesting comparison is equal information, unequal parameterisation.</p>
+<h2 id="the-honest-counterweight">The honest counterweight</h2>
+<p>There is a regime where this result does not hold, and it is not a corner case.</p>
+<p><strong>Non-stationarity.</strong> The world here is stationary by construction, which is exactly the condition bandit literature says to be suspicious of. A world where the online provider degrades at hour 18, or where a competitor ships a cheaper model on Tuesday, breaks the assumption that makes a static checkpoint safe. In that regime, an adaptive method&#x27;s whole reason for existing is live, and a static checkpoint is a liability: it will keep routing to an endpoint that stopped working.</p>
+<p><strong>Cold start.</strong> The bandits start from a prior and learn; NOVA starts from a checkpoint trained on a world that may not resemble yours. If your traffic distribution differs sharply from <code>world-analytic-v1</code>, the first thousand decisions are all bandit, and the regret curve starts high.</p>
+<p>Both objections have the same answer and it is the same answer the project gives for cost and latency: <strong>feed back real telemetry, and the priors become observations.</strong> <code>record_outcome</code>, <code>record_latency</code>, <code>record_health</code> exist for exactly this, and gate A11 is open until they are used on real traces.</p>
+<p>There is also a straight architectural answer, listed in the design document as future work: a properly adapted NOVA — the same architecture with online updates to the heads — should beat a static NOVA the same way it beat a static bandit. The comparison in EXP-007 is a lower bound on the architecture, not a ceiling.</p>
+<h2 id="what-to-take-from-it">What to take from it</h2>
+<p>Not &quot;deep learning beats bandits&quot;. Bandits are still the right answer when arms are fixed, rewards are linear, and the world moves — that is what the regret bounds are for, and EXP-007 records that LinUCB gets to 0.0252 where a naive rule gets 0.1152.</p>
+<p>Take instead: **when the candidate set is open and rewards depend on option <em>properties</em> rather than option <em>identity</em>, a per-instance scorer beats per-arm estimation, and the gap widens on templates it has never seen.** That is a claim about parameterisation, it is measurable, and it is the claim NOVA actually makes.</p></article>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

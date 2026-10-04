@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The context addon: cutting a 40k-token context with zero parameters</title>
+<meta name="description" content="NOVA does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[context</span><span class="tag">measurement</span><span class="tag">endpoints</span><span class="tag">design]</span></p><h1 id="the-context-addon">The context addon</h1>
+<h2 id="first-the-correction">First, the correction</h2>
+<p>NOVA does not parse or compact context. There is no text model in it. It reads 30 floats of state and 28 floats per option and emits one scalar per option. Feeding it a smaller context changes its inputs; producing that smaller context is a different job performed by a different component.</p>
+<p>Anyone who says &quot;NOVA compacts your context&quot; is describing a component that does not exist — at least not inside the decision model. This article is about the component that does exist.</p>
+<h2 id="why-a-separate-module">Why a separate module</h2>
+<p><code>nova/context.py</code>. Separate file, separate tests, separate experiment. Three reasons:</p>
+<p><strong>It must import without torch.</strong> The decision model needs torch and numpy. The context planner needs nothing — no numpy, no transformers, no tokenizer library. A test asserts that importing <code>nova.context</code> pulls in none of them, so it runs in a fresh clone on a machine with nothing installed.</p>
+<p><strong>It has a different failure mode.</strong> A bad decision is one wrong option. A bad compaction silently deletes the sentence the answer was in. Those need different measurements, and the compaction side needs a retention probe, not an accuracy number.</p>
+<p><strong>It has a different cost structure.</strong> The decision runs on every route. Compaction runs on a schedule you control. Conflating them means you cannot turn one off.</p>
+<h2 id="zero-parameters">Zero parameters</h2>
+<p>The default executor is a deterministic planner. No weights, no network, no clock, no randomness. Same inputs, same plan, byte for byte. That satisfies &quot;low model size&quot; in the most literal way available: it adds zero.</p>
+<p>The plan works like this. Each context item — a file, a turn, a tool result, a note — is split into sentence-or-line units. Every unit gets a score:</p>
+<pre><code>score = 3.0 * norm(query_hits)          relevance, IDF-weighted over the items being planned
+      + 2.4 * [any query hit at all]     a flat bonus, so a short exact answer beats a long
+                                         filler sentence that mentions the topic once
+      + structural_bonus                 paths, identifiers, error codes, &quot;must/never/required&quot;,
+                                         trailing questions
+      + 0.6 * recency                     later material, gently
+      + 0.8 * framing                     the first and last units of each item
+      + 6.0 * pinned                     pinned items are non-negotiable
+      + 0.5 * priority                    caller-supplied
+      + spread                           stop one file eating the whole budget</code></pre>
+<p>Then: greedy selection under a token budget, then <strong>reassembly in original order</strong>. The order step matters more than it looks. A plan that keeps the right sentences in scrambled order is worse than no plan, because the reader has to re-derive the structure that was just destroyed.</p>
+<p>Every keep and every drop carries a reason string — <code>query-or-structural-match</code>, <code>budget-selected</code>, <code>below-budget</code> — so an operator can audit why a line survived.</p>
+<p>The IDF weighting is what keeps this from being a keyword grep: a query term that appears in every file gets a low weight, because it discriminates nothing.</p>
+<h2 id="measured">Measured</h2>
+<p><code>python -m nova.compact_experiment</code> plans ten reader-shaped queries over this repository&#x27;s own docs and code, at four budget fractions, and records reduction, retention, latency and peak memory. Corpus: 40,090 tokens, counted with tiktoken — exact, not estimated.</p>
+<div class='scroll'><table><thead><tr><th>Budget</th><th>Mean reduction</th><th>Mean probe retention</th><th>Worst retention</th><th>Mean plan time</th></tr></thead><tbody><tr><td>100%</td><td>0.0%</td><td>100%</td><td>100%</td><td>0.41 s</td></tr><tr><td>50%</td><td>50.0%</td><td>91.7%</td><td>50%</td><td>0.43 s</td></tr><tr><td>25%</td><td>75.0%</td><td>89.2%</td><td>50%</td><td>0.46 s</td></tr><tr><td>12.5%</td><td>87.5%</td><td>89.2%</td><td>50%</td><td>0.45 s</td></tr></tbody></table></div>
+<p>Peak traced memory during planning: 2.7 MB.</p>
+<p><strong>The retention probe is what makes the reduction mean something.</strong> Probe terms are drawn from the corpus text before the plan runs, and the report says how many survived. A reduction ratio with no retention number next to it is a number about nothing — 100% of anything can be deleted if you do not care whether the answer is still in there.</p>
+<p><strong>The worst case is a real finding.</strong> On the calibration query the planner keeps 2 of 4 probe terms. <code>ECE</code>, <code>NLL</code> and <code>Brier</code> are rarer strings than the prose around them, so sentence-level extraction finds fewer of them. Extractive selection can only keep sentences that exist; when the answer lives in one buried sentence, it is exactly where a summarizer earns its cost.</p>
+<h2 id="local-and-online-endpoints-one-interface">Local and online endpoints, one interface</h2>
+<pre><code>from nova.context import Compactor, EndpointSummarizer
+
+local = EndpointSummarizer(&quot;http://127.0.0.1:11434&quot;, &quot;qwen2.5:3b&quot;)
+online = EndpointSummarizer(&quot;https://openrouter.ai/api/v1&quot;, &quot;some/model&quot;,
+                            api_key=&quot;...&quot;)</code></pre>
+<p>Both speak OpenAI <code>/chat/completions</code>, which is what Ollama, llama.cpp&#x27;s server, LM Studio, vLLM, OpenAI, OpenRouter, Together and Groq all expose. The URL decides which; the plan, the accounting and the report do not change. The experiment probes for a live endpoint and records what it found or why it did not, so a run never implies an LLM pass that did not happen.</p>
+<p>Two constraints keep an endpoint honest:</p>
+<ul><li><strong>It can only shrink.</strong> It is asked to rewrite the text the planner already selected. It cannot</li></ul>
+<p>widen the budget or resurrect dropped material.</p>
+<ul><li><strong>Failure degrades, it does not lie.</strong> An unreachable endpoint produces the extractive plan plus</li></ul>
+<p>a warning. The report&#x27;s <code>executor</code> field names the extractive planner, not the endpoint, because no call was made.</p>
+<p>There is a test for exactly that: with <code>summarize=False</code> and an endpoint configured, the executor field must read <code>extractive</code>. Claiming an endpoint call that never happened is the kind of small lie that becomes a large one.</p>
+<h2 id="a-bug-worth-recording">A bug worth recording</h2>
+<p>The first version capped units per item at 24. That is a reasonable speed knob and a dishonest default, because it silently discarded the rest of the file <em>before</em> budgeting — which meant <code>tokens_before</code> described a truncated view, and every reduction ratio computed against it was a fiction. At a 25% budget of the raw corpus, the planner reported a reduction of 0.0 and no warning, which read like &quot;the context could not be compressed&quot; and was actually &quot;the planner measured itself&quot;.</p>
+<p>Fixed by defaulting the cap to off and, when a caller sets one, reporting the truncation in <code>plan.report()[&quot;warnings&quot;]</code>. It is finding F25 in the log.</p>
+<p>The general lesson: <strong>a ratio is only as honest as its denominator.</strong> The experiment now computes its baseline as the planner&#x27;s own view of the whole corpus, per query, rather than the raw character count, so the two cannot drift apart.</p>
+<h2 id="what-this-is-not">What this is not</h2>
+<p>Not a summarizer of record. Not a replacement for retrieval. Not a claim about anyone&#x27;s token bill. A deterministic, auditable budget planner with a measured retention profile, plus an optional LLM pass that is only allowed to shorten what the planner already chose.</p></article>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

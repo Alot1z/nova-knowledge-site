@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calibration is the product, not a metric</title>
+<meta name="description" content="Every method in the NOVA head-to-head reports an ECE. Four of them got there by flattening their distribution to temperature 8.00. The two rule systems report confidence 1.0 and cannot be calibrated at all. Only one is both accurate and honest.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="..//">Home</a><a href="..//articles/">Articles</a><a href="..//papers/">Papers</a><a href="..//topics/">Topics</a><a href="..//design/">Design</a><a href="..//search/">Search</a><a href="..//about/">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[calibration</span><span class="tag">evaluation</span><span class="tag">uncertainty</span><span class="tag">routing]</span></p><h1 id="calibration-is-the-product-not-a-metric">Calibration is the product, not a metric</h1>
+<p>A router&#x27;s accuracy answers &quot;how often are you right&quot;. Calibration answers &quot;when you say 0.9, are you right 90% of the time&quot;. The second question is the one a caller actually depends on, because confidence is the only signal available for deciding whether to check the answer, spend more, or ask a human.</p>
+<p>The head-to-head table has an ECE column. Reading only that column produces the wrong conclusion, so this article is about the column next to it.</p>
+<h2 id="the-four-ways-to-get-a-good-ece-here">The four ways to get a good ECE here</h2>
+<div class='scroll'><table><thead><tr><th>Method</th><th>Test ECE</th><th>Fitted T</th><th>Test accuracy</th><th>False-confidence rate</th></tr></thead><tbody><tr><td>NOVA-s</td><td>0.0230</td><td>0.10</td><td>0.9005</td><td>0.0291</td></tr><tr><td>linucb_shared</td><td>0.0201</td><td>0.20</td><td>0.7102</td><td>0.0325</td></tr><tr><td>linucb_disjoint_greedy</td><td>0.0213</td><td>0.20</td><td>0.7393</td><td>0.0264</td></tr><tr><td>cosine</td><td>0.0851</td><td>8.00</td><td>0.1280</td><td>0.0000</td></tr><tr><td>keyword</td><td>0.1418</td><td>8.00</td><td>0.3649</td><td>0.0000</td></tr><tr><td>rule</td><td>0.2917</td><td>8.00</td><td>0.5267</td><td>0.0000</td></tr><tr><td>linear (87 params)</td><td>0.4150</td><td>8.00</td><td>0.6540</td><td>0.0000</td></tr></tbody></table></div>
+<p>Look at the last four rows. They have a false-confidence rate of exactly <strong>0.0000</strong> — they are never confidently wrong — and their ECE is <em>worse</em> than NOVA&#x27;s by up to eighteen times.</p>
+<p>They achieved that with a fitted temperature of <strong>8.00</strong>. Flattening a distribution hard enough means almost no prediction is ever near 1.0, so almost nothing is ever confidently wrong, so the false-confidence rate goes to zero and ECE collapses. The method did not become better calibrated. It became unable to be confident, while accuracy stayed between 0.1280 and 0.6540.</p>
+<p>This is the single most useful thing to notice about calibration numbers: <strong>a temperature far above 1 is a warning sign, not a fix.</strong> NOVA&#x27;s <code>T = 0.10</code> sharpens the distribution, because the model is genuinely accurate. The <code>T = 8.00</code> methods flatten it, because there is nothing sharp to show. Both produce an ECE in a table; only one produces a usable confidence.</p>
+<p>The LinUCB variants sit in between: <code>T = 0.20</code>, ECE around 0.021, accuracy 0.71 to 0.74. They are genuinely calibrated — they know what they do not know, which is the good news embedded in a bad accuracy number. A well-calibrated mediocre router can be routed around. A badly-calibrated good one cannot.</p>
+<h2 id="the-two-that-cannot-be-calibrated-at-all">The two that cannot be calibrated at all</h2>
+<p><code>jev_inspired</code> and <code>laya_inspired</code> report <code>mean_confidence = 1.0</code> and an ECE of 0.7955 and 0.5362 respectively. Those two numbers are the <em>same number</em>: the ECE equals the false-confidence rate exactly, in both rows, because a rule system returns <code>confidence: 1</code> on every branch and is wrong that often.</p>
+<p>This is not a calibration bug that better scaling would fix. It is structural. A rule table takes a branch; a branch has no distribution over the alternatives it did not take. There is no temperature that makes &quot;the <code>heavy</code> condition fired, therefore confidence 1&quot; into a probability statement, because the model has no belief to scale. The only fix is to give the system a belief, which means scoring the alternatives — which is what NOVA&#x27;s value head is.</p>
+<h2 id="why-separate-novelty-and-uncertainty-heads">Why separate novelty and uncertainty heads</h2>
+<p>NOVA has six heads: value, cost, latency, risk, noise, novelty. The last two exist because two different failures look identical if you collapse them:</p>
+<ul><li><strong>Uncertainty</strong> — the model knows it does not know. Regressed from the squared probability</li></ul>
+<p>error. Route to a human, sample a second answer, spend more compute.</p>
+<ul><li><strong>Novelty</strong> — the state is unlike anything in training. Regressed from the state&#x27;s</li></ul>
+<p><code>novelty_prior</code>. Do not trust <em>any</em> of the other heads; refit or abstain.</p>
+<p>A model that conflates them will report &quot;confident&quot; on an out-of-distribution state, because its output head has never learned that the region is unusual. The evaluation reports the split explicitly: <code>ood_accuracy</code> and <code>id_accuracy</code> are recorded for every method on every split, so a degradation in the tail is visible rather than averaged away.</p>
+<h2 id="what-a-caller-should-do-with-this">What a caller should do with this</h2>
+<ul><li>Use <code>confidence</code> to decide whether to verify. On NOVA, <code>false_confidence_rate = 0.0291</code> means</li></ul>
+<p>roughly 3 in 100 decisions are wrong and confident.</p>
+<ul><li>Check <code>plan.report()[&quot;counting&quot;]</code> before trusting any other number out of that system. The</li></ul>
+<p>context addon reports <code>counting: heuristic</code> with <code>ratio_kind: estimated</code> when no real tokenizer is installed, and <code>measured</code> when one is. The same discipline belongs in a router: a number whose provenance is unknown should not be acted on.</p>
+<ul><li>Do not read ECE without reading the fitted temperature and the accuracy beside it. Three of the</li></ul>
+<p>five worst ECE numbers in the table come from methods that got there by refusing to have an opinion.</p>
+<p>A confidence number is only worth what the system knows. The measure of that is whether it is ever wrong and sure, and whether you were told.</p></article>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>
