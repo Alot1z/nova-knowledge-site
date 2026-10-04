@@ -10,7 +10,7 @@
 <body>
 <header class="site"><div class="inner">
   <span class="brand">NOVA</span>
-  <nav><a href="index.html">Home</a><a href="articles/index.html">Articles</a><a href="papers/index.html">Papers</a><a href="topics/index.html">Topics</a><a href="data/index.html">Data</a><a href="design/index.html">Design</a><a href="reports/index.html">Reports</a><a href="search/index.html">Search</a><a href="about/index.html">About</a></nav>
+  <nav><a href="index.html">Home</a><a href="articles/index.html">Articles</a><a href="data/index.html">Data</a><a href="design/index.html">Design</a><a href="reports/index.html">Reports</a><a href="search/index.html">Search</a><a href="about/index.html">About</a></nav>
   <span class="spacer"></span>
   <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
      href="https://github.com/Alot1z/nova-jev-model">repository</a>
@@ -38,7 +38,7 @@
   <div class="stat"><b>0.0029</b><span>mean regret against the analytic teacher</span></div>
   <div class="stat"><b>0.0230</b><span>expected calibration error</span></div>
   <div class="stat"><b>1.85 MiB</b><span>shipped Hugging Face package</span></div>
-  <div class="stat"><b>237</b><span>real papers in the corpus</span></div>
+  <div class="stat"><b>237</b><span>reference records, kept local</span></div>
   <div class="stat"><b>75%</b><span>context cut at a 25% budget,
     89% probe retention</span></div>
   <div class="stat"><b>0</b><span>parameters added by the context addon</span></div>
@@ -67,14 +67,14 @@
       <h3>Articles</h3>
       <p>Long-form writing on what the measurements do and do not license.</p>
     </a>
-    <a class="card" href="papers/index.html">
-      <h3>Paper corpus</h3>
-      <p>237 real works across 17 topics, collected from a reference index
-      with the exact queries recorded.</p>
+    <a class="card" href="reports/index.html">
+      <h3>Reports</h3>
+      <p>12 numbered experiments, each stating what it measured
+      and what it does not license.</p>
     </a>
     <a class="card" href="https://github.com/Alot1z/nova-jev-model">
       <h3>Repository</h3>
-      <p>Python package, Hugging Face model card, MCP server, 145 tests.</p>
+      <p>Python package, Hugging Face model card, MCP server.</p>
     </a>
   </div>
 </section>
@@ -89,51 +89,19 @@
   <h3>Calibration is the product, not a metric</h3>
   <p>Every method in the NOVA head-to-head reports an ECE. Four of them got there by flattening their distribution to temperature 8.00. The two rule systems report confidence 1.0 and cannot be calibrated at all. Only one is both accurate and honest.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[calibration</span> <span class="tag">evaluation</span> <span class="tag">uncertainty</span> <span class="tag">routing]</span></div>
-</a><a class="card" href="articles/how-the-paper-corpus-was-built.html">
-  <h3>How 1,476 real papers became a 238-page corpus</h3>
-  <p>The paper library on this site is an a reference index collection, not a writing exercise: recorded queries, recorded filters, recorded drop reasons, and a selection rule stated up front.</p>
-  <div class="meta">2026-10-04 &middot; <span class="tag">[provenance</span> <span class="tag">tooling</span> <span class="tag">corpus</span> <span class="tag">honesty]</span></div>
 </a><a class="card" href="articles/measuring-bandits-against-a-static-model.html">
   <h3>Beating the bandits without a feedback loop</h3>
   <p>NOVA is a static model. It beat five contextual bandits that were learning online from the same stream. That result is worth more than the accuracy number — and it comes with three fairness rules that make it mean something.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[bandits</span> <span class="tag">evaluation</span> <span class="tag">fairness</span> <span class="tag">methodology]</span></div>
+</a><a class="card" href="articles/the-context-addon.html">
+  <h3>The context addon: cutting a 40k-token context with zero parameters</h3>
+  <p>NOVA does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.</p>
+  <div class="meta">2026-10-04 &middot; <span class="tag">[context</span> <span class="tag">measurement</span> <span class="tag">endpoints</span> <span class="tag">design]</span></div>
 </a>
 </section>
 
 <section>
-  <h2>Most-cited in the corpus</h2>
-  <a class="card" href="papers/r-a-language-and-environment-for-statistical-computing.html">
-  <h3>R: A Language and Environment for Statistical Computing</h3>
-  <p>R Core Team</p>
-  <div class="meta">2000 &middot; Unlisted
-  &middot; cited 363590</div>
-</a><a class="card" href="papers/highly-accurate-protein-structure-prediction-with-alphafold.html">
-  <h3>Highly accurate protein structure prediction with AlphaFold</h3>
-  <p>John Jumper, Richard Evans, Alexander Pritzel et al.</p>
-  <div class="meta">2021 &middot; Nature
-  &middot; cited 47916</div>
-</a><a class="card" href="papers/the-qualitative-content-analysis-process.html">
-  <h3>The qualitative content analysis process</h3>
-  <p>Satu Elo, Helvi Aulikki Kyngäs</p>
-  <div class="meta">2008 &middot; Journal of Advanced Nursing
-  &middot; cited 23054</div>
-</a><a class="card" href="papers/phaser-crystallographic-software.html">
-  <h3>Phaser crystallographic software</h3>
-  <p>Airlie J. McCoy, Ralf W. Grosse‐Kunstleve, Paul D. Adams et al.</p>
-  <div class="meta">2007 &middot; Journal of Applied Crystallography
-  &middot; cited 21412</div>
-</a><a class="card" href="papers/conducting-meta-analyses-in-r-with-the-metafor-package.html">
-  <h3>Conducting Meta-Analyses in R with the metafor Package</h3>
-  <p>Wolfgang Viechtbauer</p>
-  <div class="meta">2010 &middot; Journal of Statistical Software
-  &middot; cited 21029</div>
-</a><a class="card" href="papers/gsva-gene-set-variation-analysis-for-microarray-and-rna-seq-data.html">
-  <h3>GSVA: gene set variation analysis for microarray and RNA-Seq data</h3>
-  <p>Sonja Hänzelmann, Robert Castelo, Justin Guinney</p>
-  <div class="meta">2013 &middot; BMC Bioinformatics
-  &middot; cited 17159</div>
-</a>
-</section>
+  <h2>Head to head</h2>
 
 <section>
   <h2>Head to head</h2>
@@ -147,7 +115,6 @@
 <footer class="site">
   NOVA &mdash; a learned option arbiter. Generated from
   <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
-  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
 </footer>
 </div>
 </body>
