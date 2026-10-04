@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report 1: the first proof</title>
+<meta name="description" content="That a learned scorer beats a fixed router at all, and the protocol every later experiment inherits.">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../papers/index.html">Papers</a><a href="../../topics/index.html">Topics</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<p>The first proof that a learned scorer beats a fixed router at all. Everything after this experiment inherits its evaluation protocol.</p><p><strong>Hypothesis:</strong> ~1M learned parameters beat rules / embedding / linear on dynamic option arbitration</p><p><strong>Architecture:</strong> NOVA-1m</p><p><strong>Dataset:</strong> D1_synthetic.npz</p><h2>Parameters</h2><div class='scroll'><table><thead><tr><th>Component</th><th>Count</th></tr></thead><tbody><tr><td>state encoder</td><td>159,744</td></tr><tr><td>option encoder</td><td>42,624</td></tr><tr><td>bilinear interaction</td><td>55,392</td></tr><tr><td>trunk</td><td>762,944</td></tr><tr><td>heads</td><td>1,926</td></tr><tr><td>total</td><td>1,022,630</td></tr><tr><td>fp32 bytes</td><td>4,090,520</td></tr><tr><td>fp16 bytes</td><td>2,045,260</td></tr><tr><td>int8 bytes</td><td>1,022,630</td></tr><tr><td>int4 bytes approx</td><td>511,315</td></tr><tr><td>fp32 mib</td><td>3.9010</td></tr><tr><td>int8 mib</td><td>0.9753</td></tr></tbody></table></div><h2>Result</h2><p>NOVA acc 0.8991 vs best baseline 0.7278; regret 0.0033; params 1,022,630</p><h2>Limit</h2><p>A single split against a single analytic teacher. This establishes that the approach works, not that it wins against anything worth beating. Later experiments do the comparisons.</p>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report 8: the context addon</title>
+<meta name="description" content="What survives a token budget, and the line between that and a savings claim.">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../papers/index.html">Papers</a><a href="../../topics/index.html">Topics</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<p>The context addon. It decides what survives a token budget before anything reads it. It is not part of NOVA and adds zero parameters to it.</p><p class='callout'>&lt;strong&gt;NOVA does not parse, summarise or compress context.&lt;/strong&gt; It has no text model. It scores options. Feeding it less text changes the inputs; producing less text is a different job, and conflating the two is how a router ends up making a savings claim nobody measured.</p><p><strong>Hypothesis:</strong> A zero-parameter deterministic planner can cut a long real context to a small budget without discarding the material a reader asked for, and can prove that with a retention probe.</p><h2>Budget fractions</h2><div class='scroll'><table><caption>Read from experiments/EXP-009-context-compaction.json</caption><thead><tr><th>Budget</th><th>Reduction</th><th>Mean retention</th><th>Worst retention</th><th>Seconds</th></tr></thead><tbody><tr><td><strong>live_endpoint</strong></td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr></tbody></table></div><h2>Result</h2><p>{&quot;reduction_at_25pct_budget&quot;: 0.75, &quot;probe_retention_at_25pct_budget&quot;: 0.8917, &quot;worst_retention_at_25pct_budget&quot;: 0.5, &quot;mean_plan_seconds&quot;: 0.4595, &quot;max_plan_seconds&quot;: 0.5985}</p><h2>Decision</h2><p>MEASURED, and scoped to what was measured: on repo-corpus-v1 (153,008 bytes, 40,090 tokens by tiktoken) a 75.0% mean reduction at a 25% budget costs 89.2% mean probe retention (worst 50.0%), planning in 0.4595s mean / 0.5985s worst with 0 added parameters. NOT a claim about downstream answer quality, NOT a production token-savings figure, and the reduction is exact only insofar as the counting method (exact tokenizer) is. Gate A11 stays open for end-to-end savings because an option&#x27;s real cost and latency are still priors until production telemetry lands.</p><h2>Limit</h2><p>These numbers describe how much of this repository&#x27;s own text survived a budget on reader-shaped queries. They are not a token-savings claim about any workload, and gate A11 remains open. An option&#x27;s cost and latency are priors until a running loop records real outcomes.</p>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>

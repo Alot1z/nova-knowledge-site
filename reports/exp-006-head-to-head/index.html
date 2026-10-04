@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report 5: head to head against fixed routers</title>
+<meta name="description" content="NOVA against Jev-style and Laya-style routing on identical splits, with the ranking claim stated as a ranking claim.">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../papers/index.html">Papers</a><a href="../../topics/index.html">Topics</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<p>The central comparison. A fixed-vocabulary router, a tiered capability router, and several baselines are run against NOVA on identical splits with identical decision rules.</p><p><strong>Hypothesis:</strong> Learned dynamic option scoring beats fixed-vocabulary routing (Jev-style) and tiered capability routing (Laya-style) on the same split, especially on option templates absent from training</p><p><strong>Architecture:</strong> NOVA-s</p><p><strong>Dataset:</strong> D1_synthetic</p><h2>Head to head</h2><div class='scroll'><table><caption>Read from experiments/EXP-006-head-to-head.json</caption><thead><tr><th>Method</th><th>Test accuracy</th><th>Test regret</th><th>Unseen regret</th><th>Test ECE</th></tr></thead><tbody><tr><td><strong>nova_s</strong></td><td>0.9005</td><td>0.0029</td><td>0.0019</td><td>0.0230</td></tr><tr><td>linear</td><td>0.6540</td><td>0.0325</td><td>0.0350</td><td>0.4150</td></tr><tr><td>rule</td><td>0.5267</td><td>0.1152</td><td>0.1336</td><td>0.2917</td></tr><tr><td>keyword</td><td>0.3649</td><td>0.2016</td><td>0.1938</td><td>0.1418</td></tr><tr><td>cosine</td><td>0.1280</td><td>0.5285</td><td>0.5728</td><td>0.0851</td></tr><tr><td>jev_inspired</td><td>0.2045</td><td>0.5100</td><td>0.5658</td><td>0.7955</td></tr><tr><td>laya_inspired</td><td>0.4638</td><td>0.2150</td><td>0.2672</td><td>0.5362</td></tr></tbody></table></div><h2>Result</h2><p>NOVA test acc 0.9005 / regret 0.0029; unseen-template acc 0.9101 / regret 0.0019 vs jev 0.1533/0.5658</p><h2>Decision</h2><p>NOVA WINS on every metric on both splits</p><h2>Limit</h2><p>Every number here is measured against the analytic teacher NOVA was distilled from. That makes this a ranking claim, not a production claim: it says the scorer ranks better than the baselines on the world they all share. A real deployment measures against real outcomes, which is gate A11 and is still open.</p>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  Paper metadata from a reference index (CC0); every paper page carries its own DOI.
+</footer>
+</div>
+</body>
+</html>
