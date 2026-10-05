@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The context addon: cutting a 40k-token context with zero parameters</title>
-<meta name="description" content="NOVA does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.">
+<meta name="description" content="PIMO does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.">
 <link rel="stylesheet" href="../assets/site.css">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
@@ -12,20 +12,20 @@
 </head>
 <body>
 <header class="site"><div class="inner">
-  <span class="brand">NOVA</span>
+  <span class="brand">PIMO</span>
   <nav><a href="../index.html">Home</a><a href="../articles/index.html">Articles</a><a href="../data/index.html">Data</a><a href="../design/index.html">Design</a><a href="../reports/index.html">Reports</a><a href="../reference/index.html">Reference</a><a href="../search/index.html">Search</a><a href="../about/index.html">About</a></nav>
   <span class="spacer"></span>
   <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
-     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+     href="https://github.com/Alot1z/pimo-jev-model">repository</a>
 </div></header>
 <div class="wrap">
 <article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[context</span><span class="tag">measurement</span><span class="tag">endpoints</span><span class="tag">design]</span></p><h1 id="the-context-addon">The context addon</h1>
 <h2 id="first-the-correction">First, the correction</h2>
-<p>NOVA does not parse or compact context. There is no text model in it. It reads 30 floats of state and 28 floats per option and emits one scalar per option. Feeding it a smaller context changes its inputs; producing that smaller context is a different job performed by a different component.</p>
-<p>Anyone who says &quot;NOVA compacts your context&quot; is describing a component that does not exist — at least not inside the decision model. This article is about the component that does exist.</p>
+<p>PIMO does not parse or compact context. There is no text model in it. It reads 30 floats of state and 28 floats per option and emits one scalar per option. Feeding it a smaller context changes its inputs; producing that smaller context is a different job performed by a different component.</p>
+<p>Anyone who says &quot;PIMO compacts your context&quot; is describing a component that does not exist — at least not inside the decision model. This article is about the component that does exist.</p>
 <h2 id="why-a-separate-module">Why a separate module</h2>
-<p><code>nova/context.py</code>. Separate file, separate tests, separate experiment. Three reasons:</p>
-<p><strong>It must import without torch.</strong> The decision model needs torch and numpy. The context planner needs nothing — no numpy, no transformers, no tokenizer library. A test asserts that importing <code>nova.context</code> pulls in none of them, so it runs in a fresh clone on a machine with nothing installed.</p>
+<p><code>pimo/context.py</code>. Separate file, separate tests, separate experiment. Three reasons:</p>
+<p><strong>It must import without torch.</strong> The decision model needs torch and numpy. The context planner needs nothing — no numpy, no transformers, no tokenizer library. A test asserts that importing <code>pimo.context</code> pulls in none of them, so it runs in a fresh clone on a machine with nothing installed.</p>
 <p><strong>It has a different failure mode.</strong> A bad decision is one wrong option. A bad compaction silently deletes the sentence the answer was in. Those need different measurements, and the compaction side needs a retention probe, not an accuracy number.</p>
 <p><strong>It has a different cost structure.</strong> The decision runs on every route. Compaction runs on a schedule you control. Conflating them means you cannot turn one off.</p>
 <h2 id="zero-parameters">Zero parameters</h2>
@@ -45,13 +45,13 @@
 <p>Every keep and every drop carries a reason string — <code>query-or-structural-match</code>, <code>budget-selected</code>, <code>below-budget</code> — so an operator can audit why a line survived.</p>
 <p>The IDF weighting is what keeps this from being a keyword grep: a query term that appears in every file gets a low weight, because it discriminates nothing.</p>
 <h2 id="measured">Measured</h2>
-<p><code>python -m nova.compact_experiment</code> plans ten reader-shaped queries over this repository&#x27;s own docs and code, at four budget fractions, and records reduction, retention, latency and peak memory. Corpus: 40,090 tokens, counted with tiktoken — exact, not estimated.</p>
+<p><code>python -m pimo.compact_experiment</code> plans ten reader-shaped queries over this repository&#x27;s own docs and code, at four budget fractions, and records reduction, retention, latency and peak memory. Corpus: 40,090 tokens, counted with tiktoken — exact, not estimated.</p>
 <div class='scroll'><table><thead><tr><th>Budget</th><th>Mean reduction</th><th>Mean probe retention</th><th>Worst retention</th><th>Mean plan time</th></tr></thead><tbody><tr><td>100%</td><td>0.0%</td><td>100%</td><td>100%</td><td>0.41 s</td></tr><tr><td>50%</td><td>50.0%</td><td>91.7%</td><td>50%</td><td>0.43 s</td></tr><tr><td>25%</td><td>75.0%</td><td>89.2%</td><td>50%</td><td>0.46 s</td></tr><tr><td>12.5%</td><td>87.5%</td><td>89.2%</td><td>50%</td><td>0.45 s</td></tr></tbody></table></div>
 <p>Peak traced memory during planning: 2.7 MB.</p>
 <p><strong>The retention probe is what makes the reduction mean something.</strong> Probe terms are drawn from the corpus text before the plan runs, and the report says how many survived. A reduction ratio with no retention number next to it is a number about nothing — 100% of anything can be deleted if you do not care whether the answer is still in there.</p>
 <p><strong>The worst case is a real finding.</strong> On the calibration query the planner keeps 2 of 4 probe terms. <code>ECE</code>, <code>NLL</code> and <code>Brier</code> are rarer strings than the prose around them, so sentence-level extraction finds fewer of them. Extractive selection can only keep sentences that exist; when the answer lives in one buried sentence, it is exactly where a summarizer earns its cost.</p>
 <h2 id="local-and-online-endpoints-one-interface">Local and online endpoints, one interface</h2>
-<pre><code>from nova.context import Compactor, EndpointSummarizer
+<pre><code>from pimo.context import Compactor, EndpointSummarizer
 
 local = EndpointSummarizer(&quot;http://127.0.0.1:11434&quot;, &quot;qwen2.5:3b&quot;)
 online = EndpointSummarizer(&quot;https://openrouter.ai/api/v1&quot;, &quot;some/model&quot;,
@@ -70,8 +70,8 @@ online = EndpointSummarizer(&quot;https://openrouter.ai/api/v1&quot;, &quot;some
 <h2 id="what-this-is-not">What this is not</h2>
 <p>Not a summarizer of record. Not a replacement for retrieval. Not a claim about anyone&#x27;s token bill. A deterministic, auditable budget planner with a measured retention profile, plus an optional LLM pass that is only allowed to shorten what the planner already chose.</p></article>
 <footer class="site">
-  NOVA &mdash; a learned option arbiter. Generated from
-  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  PIMO &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/pimo-jev-model">Alot1z/pimo-jev-model</a> by <code>tools/build_site.py</code>.
 </footer>
 </div>
 </body>

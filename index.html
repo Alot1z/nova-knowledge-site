@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NOVA — Neural Option-and-Value Arbitration</title>
-<meta name="description" content="NOVA — Neural Option-and-Value Arbitration">
+<title>PIMO — Neural Option-and-Value Arbitration</title>
+<meta name="description" content="PIMO — Neural Option-and-Value Arbitration">
 <link rel="stylesheet" href="assets/site.css">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
@@ -12,27 +12,27 @@
 </head>
 <body>
 <header class="site"><div class="inner">
-  <span class="brand">NOVA</span>
+  <span class="brand">PIMO</span>
   <nav><a href="index.html">Home</a><a href="articles/index.html">Articles</a><a href="data/index.html">Data</a><a href="design/index.html">Design</a><a href="reports/index.html">Reports</a><a href="reference/index.html">Reference</a><a href="search/index.html">Search</a><a href="about/index.html">About</a></nav>
   <span class="spacer"></span>
   <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
-     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+     href="https://github.com/Alot1z/pimo-jev-model">repository</a>
 </div></header>
 <div class="wrap">
 <div class="hero">
   <div class="kicker">Neural option-and-value arbitration</div>
   <h1>A 481,350-parameter executive that scores which tool should act,
       given what the machine is doing right now.</h1>
-  <p class="lede">NOVA is not a router. A router picks between a fixed list of
-  classes. NOVA scores a <em>scalar per registered option instance</em> against the
+  <p class="lede">PIMO is not a router. A router picks between a fixed list of
+  classes. PIMO scores a <em>scalar per registered option instance</em> against the
   current state &mdash; cache, local model, deterministic function, MCP tool, agent,
   online endpoint, human, escalation &mdash; with no fixed output vocabulary, so a new
   option is a registration, not a code change.</p>
   <p class="lede">What follows is measured, not promised. The head-to-head numbers come from
-  <a href="https://github.com/Alot1z/nova-jev-model/blob/master/experiments/EXP-006-head-to-head.json">EXP-006</a> and
-  <a href="https://github.com/Alot1z/nova-jev-model/blob/master/experiments/EXP-007-bandit-head-to-head.json">EXP-007</a>;
+  <a href="https://github.com/Alot1z/pimo-jev-model/blob/master/experiments/EXP-006-head-to-head.json">EXP-006</a> and
+  <a href="https://github.com/Alot1z/pimo-jev-model/blob/master/experiments/EXP-007-bandit-head-to-head.json">EXP-007</a>;
   the context addon's numbers come from
-  <a href="https://github.com/Alot1z/nova-jev-model/blob/master/experiments/EXP-009-context-compaction.json">EXP-009</a>.</p>
+  <a href="https://github.com/Alot1z/pimo-jev-model/blob/master/experiments/EXP-009-context-compaction.json">EXP-009</a>.</p>
 </div>
 
 <div class="stats">
@@ -51,7 +51,7 @@
 
 <div class="banner">
   <b>Read this before the numbers.</b> Ground truth is an analytic world
-  (<code>world-analytic-v1</code>), not production traffic. NOVA is a ranking model on
+  (<code>world-analytic-v1</code>), not production traffic. PIMO is a ranking model on
   that world. The honest claim is &ldquo;beats eleven hand-built and learned baselines
   on that world, and transfers to option templates it has never seen&rdquo; &mdash; not
   &ldquo;will route your agent 40% cheaper&rdquo;. See
@@ -75,7 +75,7 @@
       <p>12 numbered experiments, each stating what it measured
       and what it does not license.</p>
     </a>
-    <a class="card" href="https://github.com/Alot1z/nova-jev-model">
+    <a class="card" href="https://github.com/Alot1z/pimo-jev-model">
       <h3>Repository</h3>
       <p>Python package, Hugging Face model card, MCP server.</p>
     </a>
@@ -90,15 +90,15 @@
   <div class="meta">2026-10-04 &middot; <span class="tag">[packaging</span> <span class="tag">verification</span> <span class="tag">transformers</span> <span class="tag">safetensors</span> <span class="tag">testing]</span></div>
 </a><a class="card" href="articles/calibration-is-the-product.html">
   <h3>Calibration is the product, not a metric</h3>
-  <p>Every method in the NOVA head-to-head reports an ECE. Four of them got there by flattening their distribution to temperature 8.00. The two rule systems report confidence 1.0 and cannot be calibrated at all. Only one is both accurate and honest.</p>
+  <p>Every method in the PIMO head-to-head reports an ECE. Four of them got there by flattening their distribution to temperature 8.00. The two rule systems report confidence 1.0 and cannot be calibrated at all. Only one is both accurate and honest.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[calibration</span> <span class="tag">evaluation</span> <span class="tag">uncertainty</span> <span class="tag">routing]</span></div>
 </a><a class="card" href="articles/measuring-bandits-against-a-static-model.html">
   <h3>Beating the bandits without a feedback loop</h3>
-  <p>NOVA is a static model. It beat five contextual bandits that were learning online from the same stream. That result is worth more than the accuracy number — and it comes with three fairness rules that make it mean something.</p>
+  <p>PIMO is a static model. It beat five contextual bandits that were learning online from the same stream. That result is worth more than the accuracy number — and it comes with three fairness rules that make it mean something.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[bandits</span> <span class="tag">evaluation</span> <span class="tag">fairness</span> <span class="tag">methodology]</span></div>
 </a><a class="card" href="articles/the-context-addon.html">
   <h3>The context addon: cutting a 40k-token context with zero parameters</h3>
-  <p>NOVA does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.</p>
+  <p>PIMO does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[context</span> <span class="tag">measurement</span> <span class="tag">endpoints</span> <span class="tag">design]</span></div>
 </a>
 </section>
@@ -108,7 +108,7 @@
 
 <section>
   <h2>Head to head</h2>
-  <div class='scroll'><table><thead><tr><th>Method</th><th>Test accuracy</th><th>Test regret</th><th>Unseen-template regret</th><th>Test ECE</th></tr></thead><tbody><tr style='color:var(--accent)'><td><strong>NOVA-s (481,350 params)</strong></td><td>0.9005</td><td>0.0029</td><td>0.0019</td><td>0.0230</td></tr><tr><td>linear (87 features)</td><td>0.6540</td><td>0.0325</td><td>0.0350</td><td>0.4150</td></tr><tr><td>linucb_disjoint</td><td>0.7434</td><td>0.0252</td><td>0.0257</td><td>0.0215</td></tr><tr><td>linucb_disjoint_greedy</td><td>0.7393</td><td>0.0247</td><td>0.0249</td><td>0.0213</td></tr><tr><td>linucb_shared</td><td>0.7102</td><td>0.0404</td><td>0.0440</td><td>0.0201</td></tr><tr><td>neural_bandit_t</td><td>0.8246</td><td>0.0124</td><td>0.0144</td><td>0.0356</td></tr><tr><td>neural_bandit_mean</td><td>0.8246</td><td>0.0124</td><td>0.0144</td><td>0.0358</td></tr><tr><td>rule</td><td>0.5267</td><td>0.1152</td><td>0.1336</td><td>0.2917</td></tr><tr><td>laya_inspired</td><td>0.4638</td><td>0.2150</td><td>0.2672</td><td>0.5362</td></tr><tr><td>keyword</td><td>0.3649</td><td>0.2016</td><td>0.1938</td><td>0.1418</td></tr><tr><td>cosine</td><td>0.1280</td><td>0.5285</td><td>0.5728</td><td>0.0851</td></tr><tr><td>jev_inspired</td><td>0.2045</td><td>0.5100</td><td>0.5658</td><td>0.7955</td></tr></tbody></table></div>
+  <div class='scroll'><table><thead><tr><th>Method</th><th>Test accuracy</th><th>Test regret</th><th>Unseen-template regret</th><th>Test ECE</th></tr></thead><tbody><tr style='color:var(--accent)'><td><strong>PIMO-s (481,350 params)</strong></td><td>0.9005</td><td>0.0029</td><td>0.0019</td><td>0.0230</td></tr><tr><td>linear (87 features)</td><td>0.6540</td><td>0.0325</td><td>0.0350</td><td>0.4150</td></tr><tr><td>linucb_disjoint</td><td>0.7434</td><td>0.0252</td><td>0.0257</td><td>0.0215</td></tr><tr><td>linucb_disjoint_greedy</td><td>0.7393</td><td>0.0247</td><td>0.0249</td><td>0.0213</td></tr><tr><td>linucb_shared</td><td>0.7102</td><td>0.0404</td><td>0.0440</td><td>0.0201</td></tr><tr><td>neural_bandit_t</td><td>0.8246</td><td>0.0124</td><td>0.0144</td><td>0.0356</td></tr><tr><td>neural_bandit_mean</td><td>0.8246</td><td>0.0124</td><td>0.0144</td><td>0.0358</td></tr><tr><td>rule</td><td>0.5267</td><td>0.1152</td><td>0.1336</td><td>0.2917</td></tr><tr><td>laya_inspired</td><td>0.4638</td><td>0.2150</td><td>0.2672</td><td>0.5362</td></tr><tr><td>keyword</td><td>0.3649</td><td>0.2016</td><td>0.1938</td><td>0.1418</td></tr><tr><td>cosine</td><td>0.1280</td><td>0.5285</td><td>0.5728</td><td>0.0851</td></tr><tr><td>jev_inspired</td><td>0.2045</td><td>0.5100</td><td>0.5658</td><td>0.7955</td></tr></tbody></table></div>
   <p class="count">Both splits, same features, same budget, same telemetry feed. Every cell is
   read out of <code>experiments/EXP-006-head-to-head.json</code> and
   <code>experiments/EXP-007-bandit-head-to-head.json</code> at build time, so this table cannot
@@ -116,8 +116,8 @@
 </section>
 
 <footer class="site">
-  NOVA &mdash; a learned option arbiter. Generated from
-  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  PIMO &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/pimo-jev-model">Alot1z/pimo-jev-model</a> by <code>tools/build_site.py</code>.
 </footer>
 </div>
 </body>

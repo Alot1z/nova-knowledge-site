@@ -12,35 +12,35 @@
 </head>
 <body>
 <header class="site"><div class="inner">
-  <span class="brand">NOVA</span>
+  <span class="brand">PIMO</span>
   <nav><a href="../index.html">Home</a><a href="../articles/index.html">Articles</a><a href="../data/index.html">Data</a><a href="../design/index.html">Design</a><a href="../reports/index.html">Reports</a><a href="../reference/index.html">Reference</a><a href="../search/index.html">Search</a><a href="../about/index.html">About</a></nav>
   <span class="spacer"></span>
   <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
-     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+     href="https://github.com/Alot1z/pimo-jev-model">repository</a>
 </div></header>
 <div class="wrap">
-<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-05 &middot; <span class="tag">interface</span><span class="tag">mcp</span><span class="tag">schema</span></p><p>NOVA is a scorer, not a generator. It takes options and a state and returns a ranking with a confidence. Everything on this page is a contract you can call directly, and every field name here is the field name in the code.</p>
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-05 &middot; <span class="tag">interface</span><span class="tag">mcp</span><span class="tag">schema</span></p><p>PIMO is a scorer, not a generator. It takes options and a state and returns a ranking with a confidence. Everything on this page is a contract you can call directly, and every field name here is the field name in the code.</p>
 <h2 id="the-five-tools">The five tools</h2>
-<p>NOVA speaks MCP over stdio and exposes five tools. Nothing needs to be registered in advance: option identifiers are opaque strings supplied by the caller.</p>
-<h3 id="novadecide"><code>nova_decide</code></h3>
-<pre><code>nova_decide(state: dict, options: list[dict], request_text: str = &quot;&quot;,
+<p>PIMO speaks MCP over stdio and exposes five tools. Nothing needs to be registered in advance: option identifiers are opaque strings supplied by the caller.</p>
+<h3 id="pimodecide"><code>pimo_decide</code></h3>
+<pre><code>pimo_decide(state: dict, options: list[dict], request_text: str = &quot;&quot;,
             policy: str = &quot;BALANCED&quot;) -&gt; dict</code></pre>
 <p>Scores the options you pass against the state you pass. Returns <code>selected_option</code>, <code>option_scores</code>, <code>confidence</code>, <code>uncertainty</code>, <code>expected_utility</code>, <code>expected_cost</code>, <code>expected_latency</code>, <code>risk</code>, <code>novelty</code>, <code>escalate</code>, <code>reason_code</code>, <code>model_version</code>, <code>decision_id</code>.</p>
 <p><code>request_text</code> is optional and defaults to empty. Passing it turns on capability discovery for that call, which costs real wall-clock time; a caller that already knows its candidates should leave it empty. See the cold-start report for the measured difference.</p>
 <p><code>policy</code> selects how cost, latency and risk are weighted against quality. The default is <code>BALANCED</code>.</p>
-<h3 id="novadiscover"><code>nova_discover</code></h3>
-<pre><code>nova_discover(query: str = &quot;*.exe&quot;) -&gt; dict</code></pre>
+<h3 id="pimodiscover"><code>pimo_discover</code></h3>
+<pre><code>pimo_discover(query: str = &quot;*.exe&quot;) -&gt; dict</code></pre>
 <p>Enumerates locally available capabilities and returns up to 200 of them as <code>{&quot;id&quot;, &quot;kind&quot;, &quot;description&quot;}</code>, plus a per-source <code>report</code>. This is the tool that turns a machine&#x27;s contents into candidate options; it is not on the decide path, because deciding over options you already hold does not need it.</p>
-<h3 id="novatelemetry"><code>nova_telemetry</code></h3>
-<pre><code>nova_telemetry() -&gt; dict</code></pre>
+<h3 id="pimotelemetry"><code>pimo_telemetry</code></h3>
+<pre><code>pimo_telemetry() -&gt; dict</code></pre>
 <p>Cache hit counters, registry size, and the number of decisions served.</p>
-<h3 id="novaself"><code>nova_self</code></h3>
-<pre><code>nova_self(verb: str = &quot;report&quot;, ledger: str = &quot;artifacts/outcomes.db&quot;,
+<h3 id="pimoself"><code>pimo_self</code></h3>
+<pre><code>pimo_self(verb: str = &quot;report&quot;, ledger: str = &quot;artifacts/outcomes.db&quot;,
            state: dict | None = None) -&gt; dict</code></pre>
-<p>NOVA applied to NOVA&#x27;s own execution surfaces. <code>verb</code> is one of:</p>
+<p>PIMO applied to PIMO&#x27;s own execution surfaces. <code>verb</code> is one of:</p>
 <ul><li><code>report</code> — what is measured and what is still a prior</li><li><code>arbitrate</code> — decide which surface should serve a decision</li><li><code>run</code> — decide, execute the winner for real, then measure it</li></ul>
-<h3 id="novainstall"><code>nova_install</code></h3>
-<pre><code>nova_install(verb: str = &quot;status&quot;, apply: bool = False,
+<h3 id="pimoinstall"><code>pimo_install</code></h3>
+<pre><code>pimo_install(verb: str = &quot;status&quot;, apply: bool = False,
              harness: list[str] | None = None) -&gt; dict</code></pre>
 <p>Plans or applies installation of the agent skill, the MCP entry, and the hook. Dry run unless <code>apply</code> is true; every verb returns a per-harness plan so a wrapper can show it before anything is written.</p>
 <h2 id="the-decision">The decision</h2>
@@ -62,11 +62,16 @@
 <ul><li><strong>int8</strong> — quantised, roughly a quarter of the size. Quantisation is allowed</li></ul>
 <p>to change which option is selected; the gate measures the cost instead of pretending it is free.</p>
 <p>The gate is five terms: the graph matches its checkpoint, fp32 matches PyTorch, fp32 reproduces the same selection, int8&#x27;s accuracy cost is inside budget, and latency is inside its drift budget. The ONNX contract report renders the measured values.</p>
+<h2 id="the-performance-contract">The performance contract</h2>
+<p>Correctness answers &quot;is it right&quot;. Speed answers &quot;is it worth calling&quot;, and for a machine without a GPU that is the question that decides adoption, so it gets its own published promise rather than a figure buried in a report.</p>
+<p>The contract covers a <strong>four-core machine with no GPU</strong>, running the single-threaded CPU execution provider. For both exported graphs it publishes the session startup and the per-call inference latency, measured as the median of five batches of twenty calls rather than one percentile over a run of back-to-back calls — on a loaded machine the latter measures the scheduler as much as the graph, and the batch-to-batch spread is published alongside so a reader can see how noisy the machine was.</p>
+<p>Those figures are written to one file and checked by re-measuring. A figure outside <strong>0.5x to 2.0x</strong> of the published one fails the build, in both directions: a slowdown is a regression, and a measurement far <em>faster</em> than published means the published number is stale and every later check is being made against a promise nobody is keeping. The document and the file it quotes are written from the same measurement, so they cannot disagree.</p>
+<p>Two things the contract deliberately does not claim: GPU execution, which has not been measured, and throughput under concurrency, since every figure here is one caller on one thread.</p>
 <h2 id="what-is-not-here">What is not here</h2>
 <p>The weights, the training data, the code that produces them, and the analytic world the model was distilled from are not published on this site. They live in a private repository. Accuracy quoted anywhere on this site is measured against that world, which is a ranking against other routers on one synthetic environment — not a claim about production traffic.</p></article>
 <footer class="site">
-  NOVA &mdash; a learned option arbiter. Generated from
-  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  PIMO &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/pimo-jev-model">Alot1z/pimo-jev-model</a> by <code>tools/build_site.py</code>.
 </footer>
 </div>
 </body>

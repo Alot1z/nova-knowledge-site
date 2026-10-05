@@ -12,11 +12,11 @@
 </head>
 <body>
 <header class="site"><div class="inner">
-  <span class="brand">NOVA</span>
+  <span class="brand">PIMO</span>
   <nav><a href="../index.html">Home</a><a href="../articles/index.html">Articles</a><a href="../data/index.html">Data</a><a href="../design/index.html">Design</a><a href="../reports/index.html">Reports</a><a href="../reference/index.html">Reference</a><a href="../search/index.html">Search</a><a href="../about/index.html">About</a></nav>
   <span class="spacer"></span>
   <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
-     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+     href="https://github.com/Alot1z/pimo-jev-model">repository</a>
 </div></header>
 <div class="wrap">
 <div class="kicker">Writing</div><h1 style="font-size:32px">Articles</h1><p class="lede" style="color:var(--muted);max-width:72ch">6 pieces, each anchored to a measured result in <code>experiments/</code>.</p><a class="card" href="../articles/byte-reproducible-model-export.html">
@@ -25,28 +25,28 @@
   <div class="meta">2026-10-04 &middot; <span class="tag">[packaging</span> <span class="tag">verification</span> <span class="tag">transformers</span> <span class="tag">safetensors</span> <span class="tag">testing]</span></div>
 </a><a class="card" href="../articles/calibration-is-the-product.html">
   <h3>Calibration is the product, not a metric</h3>
-  <p>Every method in the NOVA head-to-head reports an ECE. Four of them got there by flattening their distribution to temperature 8.00. The two rule systems report confidence 1.0 and cannot be calibrated at all. Only one is both accurate and honest.</p>
+  <p>Every method in the PIMO head-to-head reports an ECE. Four of them got there by flattening their distribution to temperature 8.00. The two rule systems report confidence 1.0 and cannot be calibrated at all. Only one is both accurate and honest.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[calibration</span> <span class="tag">evaluation</span> <span class="tag">uncertainty</span> <span class="tag">routing]</span></div>
 </a><a class="card" href="../articles/measuring-bandits-against-a-static-model.html">
   <h3>Beating the bandits without a feedback loop</h3>
-  <p>NOVA is a static model. It beat five contextual bandits that were learning online from the same stream. That result is worth more than the accuracy number — and it comes with three fairness rules that make it mean something.</p>
+  <p>PIMO is a static model. It beat five contextual bandits that were learning online from the same stream. That result is worth more than the accuracy number — and it comes with three fairness rules that make it mean something.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[bandits</span> <span class="tag">evaluation</span> <span class="tag">fairness</span> <span class="tag">methodology]</span></div>
 </a><a class="card" href="../articles/the-context-addon.html">
   <h3>The context addon: cutting a 40k-token context with zero parameters</h3>
-  <p>NOVA does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.</p>
+  <p>PIMO does not compress text. A separate zero-parameter planner does, measured at 75% reduction and 89% probe retention on a 25% budget, with the same interface against local and online LLM endpoints.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[context</span> <span class="tag">measurement</span> <span class="tag">endpoints</span> <span class="tag">design]</span></div>
 </a><a class="card" href="../articles/what-the-numbers-license.html">
   <h3>What the numbers license, and what they do not</h3>
-  <p>NOVA&#x27;s 0.9005 accuracy is measured against an analytic world, not production traffic. This article draws the line between what the measurements establish, what they suggest, and what nobody has measured at all.</p>
+  <p>PIMO&#x27;s 0.9005 accuracy is measured against an analytic world, not production traffic. This article draws the line between what the measurements establish, what they suggest, and what nobody has measured at all.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[honesty</span> <span class="tag">evaluation</span> <span class="tag">methodology</span> <span class="tag">priors]</span></div>
 </a><a class="card" href="../articles/why-a-fixed-class-router-loses.html">
   <h3>Why a fixed-class router loses to a per-instance scalar</h3>
-  <p>A two-boolean rule table that picks one of three strings scores 0.2045 accuracy and 0.5100 regret on the NOVA world. A 481,350-parameter model that emits one scalar per option scores 0.9005 and 0.0029. The gap is not intelligence — it is the shape of the output space.</p>
+  <p>A two-boolean rule table that picks one of three strings scores 0.2045 accuracy and 0.5100 regret on the PIMO world. A 481,350-parameter model that emits one scalar per option scores 0.9005 and 0.0029. The gap is not intelligence — it is the shape of the output space.</p>
   <div class="meta">2026-10-04 &middot; <span class="tag">[routing</span> <span class="tag">baselines</span> <span class="tag">arbitration</span> <span class="tag">design]</span></div>
 </a>
 <footer class="site">
-  NOVA &mdash; a learned option arbiter. Generated from
-  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  PIMO &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/pimo-jev-model">Alot1z/pimo-jev-model</a> by <code>tools/build_site.py</code>.
 </footer>
 </div>
 </body>

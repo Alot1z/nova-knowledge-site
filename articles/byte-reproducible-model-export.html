@@ -12,19 +12,19 @@
 </head>
 <body>
 <header class="site"><div class="inner">
-  <span class="brand">NOVA</span>
+  <span class="brand">PIMO</span>
   <nav><a href="../index.html">Home</a><a href="../articles/index.html">Articles</a><a href="../data/index.html">Data</a><a href="../design/index.html">Design</a><a href="../reports/index.html">Reports</a><a href="../reference/index.html">Reference</a><a href="../search/index.html">Search</a><a href="../about/index.html">About</a></nav>
   <span class="spacer"></span>
   <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
-     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+     href="https://github.com/Alot1z/pimo-jev-model">repository</a>
 </div></header>
 <div class="wrap">
 <article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-04 &middot; <span class="tag">[packaging</span><span class="tag">verification</span><span class="tag">transformers</span><span class="tag">safetensors</span><span class="tag">testing]</span></p><h1 id="three-bugs-that-made-a-verified-export-meaningless">Three bugs that made a verified export meaningless</h1>
-<p>The Hugging Face package for NOVA-s is six files and 1.85 MiB, and it exports with three gates: 27/27 tensors matched, <code>max_abs_diff_vs_novacore = 0.0</code> on all six heads, <code>agreement_with_novacore = 1.0</code>. Those gates are real. Getting them to mean anything took three bugs, and each one failed in the same way — by looking completely healthy.</p>
+<p>The Hugging Face package for PIMO-s is six files and 1.85 MiB, and it exports with three gates: 27/27 tensors matched, <code>max_abs_diff_vs_pimocore = 0.0</code> on all six heads, <code>agreement_with_pimocore = 1.0</code>. Those gates are real. Getting them to mean anything took three bugs, and each one failed in the same way — by looking completely healthy.</p>
 <h2 id="f20-the-checkpoint-that-loaded-random-weights">F20: the checkpoint that loaded random weights</h2>
-<p><code>NovaModel.trunk</code> was a nested <code>nn.Sequential</code>, which produces keys like <code>trunk.trunk.0.weight</code> and <code>trunk.trunk.0.bias</code> instead of <code>trunk.0.weight</code> and <code>trunk.0.bias</code>.</p>
+<p><code>PimoModel.trunk</code> was a nested <code>nn.Sequential</code>, which produces keys like <code>trunk.trunk.0.weight</code> and <code>trunk.trunk.0.bias</code> instead of <code>trunk.0.weight</code> and <code>trunk.0.bias</code>.</p>
 <p><code>from_pretrained</code> does not raise on missing or unexpected keys by default. It loads what it recognises, warns about the rest, and returns a model whose untouched parameters keep their <code>nn.Module</code> initialisation. The result was a package that imported cleanly, returned the right shapes, produced plausible-looking logits, and was in fact an untrained network.</p>
-<p>The fix is a bare <code>nn.Sequential</code> so the keys come out flat. The lesson is not about nesting — it is that <strong>a checkpoint format mismatch and a successful load are indistinguishable from the outside unless you compare outputs.</strong> The third gate, <code>agreement_with_novacore = 1.0</code> across a real <code>decide()</code> call, is what caught it. Shape checks did not; <code>from_pretrained</code> returning did not.</p>
+<p>The fix is a bare <code>nn.Sequential</code> so the keys come out flat. The lesson is not about nesting — it is that <strong>a checkpoint format mismatch and a successful load are indistinguishable from the outside unless you compare outputs.</strong> The third gate, <code>agreement_with_pimocore = 1.0</code> across a real <code>decide()</code> call, is what caught it. Shape checks did not; <code>from_pretrained</code> returning did not.</p>
 <h2 id="f21-the-verifier-that-verified-nothing">F21: the verifier that verified nothing</h2>
 <p><code>verify()</code> built its reference by calling <code>model.state_dict()</code> on the model it had just loaded and comparing the model against itself. Every tensor matched. Every difference was exactly zero. The gates passed on a package containing random weights.</p>
 <p>This is worth dwelling on, because the failure mode is not stupidity — it is that a self-comparing test is <em>structurally incapable</em> of failing. <code>diff = a - a</code> is <code>0.0</code> for any <code>a</code>, including garbage.</p>
@@ -41,7 +41,7 @@
 <p>The result:</p>
 <pre><code>model.safetensors  sha256 5bcd0016ef533a3f8a34bdd67b1c2e2aa436868f2d408b63b0fc245ab0e7ad77
 package            sha256 b65ebbce1354951b84cdd31e5161ac5c3bf86c8a6254fe7a416ef841e854c972</code></pre>
-<p>Re-exported from scratch in a native temp directory with <code>nova</code> absent from <code>sys.path</code>, and the committed blob hash equals the remote-downloaded hash.</p>
+<p>Re-exported from scratch in a native temp directory with <code>pimo</code> absent from <code>sys.path</code>, and the committed blob hash equals the remote-downloaded hash.</p>
 <h2 id="the-pattern">The pattern</h2>
 <p>All three are the same shape: <strong>a check that cannot fail.</strong> A load that does not raise. A comparison against itself. A hash that nobody compared. Each passed, each reported success, and each would have shipped.</p>
 <p>The defences that actually caught them were unglamorous:</p>
@@ -49,8 +49,8 @@ package            sha256 b65ebbce1354951b84cdd31e5161ac5c3bf86c8a6254fe7a416ef8
 <p>machine with the repo installed&quot; is a test that cannot fail either.</p>
 <p>None of this is exotic. It is just the part of packaging that does not get skipped when the happy path is green.</p></article>
 <footer class="site">
-  NOVA &mdash; a learned option arbiter. Generated from
-  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  PIMO &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/pimo-jev-model">Alot1z/pimo-jev-model</a> by <code>tools/build_site.py</code>.
 </footer>
 </div>
 </body>

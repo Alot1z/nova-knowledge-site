@@ -12,17 +12,17 @@
 </head>
 <body>
 <header class="site"><div class="inner">
-  <span class="brand">NOVA</span>
+  <span class="brand">PIMO</span>
   <nav><a href="../../index.html">Home</a><a href="../../articles/index.html">Articles</a><a href="../../data/index.html">Data</a><a href="../../design/index.html">Design</a><a href="../../reports/index.html">Reports</a><a href="../../reference/index.html">Reference</a><a href="../../search/index.html">Search</a><a href="../../about/index.html">About</a></nav>
   <span class="spacer"></span>
   <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
-     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+     href="https://github.com/Alot1z/pimo-jev-model">repository</a>
 </div></header>
 <div class="wrap">
 <p>How much model is actually needed. The question matters because the efficiency target is about parameters a process must carry, not accuracy a benchmark can print.</p><p><strong>Hypothesis:</strong> a different model size changes the accuracy/regret/calibration trade-off</p><p><strong>Dataset:</strong> D1_synthetic.npz</p><h2>Selection</h2><p>Best by accuracy: &amp;quot;5m&amp;quot;.</p><h2>Result</h2><p>best accuracy 5m @ 0.9052 (5,617,702 params)</p><h2>Decision</h2><p>5m wins on accuracy but exceeds the 1M efficiency target -- document</p><h2>Next</h2><p>runtime integration + outcome learning</p><h2>Limit</h2><p>Accuracy rose with size while the parameter budget did not follow. The smaller model was chosen for shipping, and that trade is a judgement, not a result. The sweep measures the frontier; it does not pick for you.</p>
 <footer class="site">
-  NOVA &mdash; a learned option arbiter. Generated from
-  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+  PIMO &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/pimo-jev-model">Alot1z/pimo-jev-model</a> by <code>tools/build_site.py</code>.
 </footer>
 </div>
 </body>
