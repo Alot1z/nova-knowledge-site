@@ -9,11 +9,13 @@ Live at <https://alot1z.github.io/nova-knowledge-site/>.
 
 ## What is here
 
-This repository holds **generated output only**. The site has 26 pages:
+This repository holds **generated output only**. The site has 28 pages:
 
 - the design document, at `/design/`
 - six long-form articles under `/articles/`
 - twelve numbered experiment reports under `/reports/`
+- the interface reference — the five MCP tools, the decision fields, and the
+  state and option feature vectors — at `/reference/`
 - the experiment JSON files behind every figure, at `/data/`
 - a client-side search index at `/search/`
 

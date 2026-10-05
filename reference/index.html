@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference</title>
+<meta name="description" content="The MCP tool contract, the decision schema, and the feature vectors, read from the code rather than restated from memory.">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <span class="brand">NOVA</span>
+  <nav><a href="../index.html">Home</a><a href="../articles/index.html">Articles</a><a href="../data/index.html">Data</a><a href="../design/index.html">Design</a><a href="../reports/index.html">Reports</a><a href="../reference/index.html">Reference</a><a href="../search/index.html">Search</a><a href="../about/index.html">About</a></nav>
+  <span class="spacer"></span>
+  <a class="brand" style="font-size:13px;font-weight:500;color:var(--muted)"
+     href="https://github.com/Alot1z/nova-jev-model">repository</a>
+</div></header>
+<div class="wrap">
+<article><p style="color:var(--dim);font-size:13px;font-family:ui-monospace,monospace">2026-10-05 &middot; <span class="tag">interface</span><span class="tag">mcp</span><span class="tag">schema</span></p><p>NOVA is a scorer, not a generator. It takes options and a state and returns a ranking with a confidence. Everything on this page is a contract you can call directly, and every field name here is the field name in the code.</p>
+<h2 id="the-five-tools">The five tools</h2>
+<p>NOVA speaks MCP over stdio and exposes five tools. Nothing needs to be registered in advance: option identifiers are opaque strings supplied by the caller.</p>
+<h3 id="novadecide"><code>nova_decide</code></h3>
+<pre><code>nova_decide(state: dict, options: list[dict], request_text: str = &quot;&quot;,
+            policy: str = &quot;BALANCED&quot;) -&gt; dict</code></pre>
+<p>Scores the options you pass against the state you pass. Returns <code>selected_option</code>, <code>option_scores</code>, <code>confidence</code>, <code>uncertainty</code>, <code>expected_utility</code>, <code>expected_cost</code>, <code>expected_latency</code>, <code>risk</code>, <code>novelty</code>, <code>escalate</code>, <code>reason_code</code>, <code>model_version</code>, <code>decision_id</code>.</p>
+<p><code>request_text</code> is optional and defaults to empty. Passing it turns on capability discovery for that call, which costs real wall-clock time; a caller that already knows its candidates should leave it empty. See the cold-start report for the measured difference.</p>
+<p><code>policy</code> selects how cost, latency and risk are weighted against quality. The default is <code>BALANCED</code>.</p>
+<h3 id="novadiscover"><code>nova_discover</code></h3>
+<pre><code>nova_discover(query: str = &quot;*.exe&quot;) -&gt; dict</code></pre>
+<p>Enumerates locally available capabilities and returns up to 200 of them as <code>{&quot;id&quot;, &quot;kind&quot;, &quot;description&quot;}</code>, plus a per-source <code>report</code>. This is the tool that turns a machine&#x27;s contents into candidate options; it is not on the decide path, because deciding over options you already hold does not need it.</p>
+<h3 id="novatelemetry"><code>nova_telemetry</code></h3>
+<pre><code>nova_telemetry() -&gt; dict</code></pre>
+<p>Cache hit counters, registry size, and the number of decisions served.</p>
+<h3 id="novaself"><code>nova_self</code></h3>
+<pre><code>nova_self(verb: str = &quot;report&quot;, ledger: str = &quot;artifacts/outcomes.db&quot;,
+           state: dict | None = None) -&gt; dict</code></pre>
+<p>NOVA applied to NOVA&#x27;s own execution surfaces. <code>verb</code> is one of:</p>
+<ul><li><code>report</code> — what is measured and what is still a prior</li><li><code>arbitrate</code> — decide which surface should serve a decision</li><li><code>run</code> — decide, execute the winner for real, then measure it</li></ul>
+<h3 id="novainstall"><code>nova_install</code></h3>
+<pre><code>nova_install(verb: str = &quot;status&quot;, apply: bool = False,
+             harness: list[str] | None = None) -&gt; dict</code></pre>
+<p>Plans or applies installation of the agent skill, the MCP entry, and the hook. Dry run unless <code>apply</code> is true; every verb returns a per-harness plan so a wrapper can show it before anything is written.</p>
+<h2 id="the-decision">The decision</h2>
+<p><code>decide</code> filters to the available options, scores them, and returns the selected one together with the full score for every candidate it considered. An empty candidate set is not an error: it returns <code>selected_option: null</code> with <code>uncertainty</code> at its maximum, <code>escalate: true</code>, and <code>reason_code: &quot;no_feasible_option&quot;</code>.</p>
+<p>An option is available when <code>enabled</code> is true <strong>and</strong> <code>availability[&quot;available&quot;] &gt; 0.5</code>. Both conditions, always.</p>
+<p><code>reason_code</code> is one of <code>novelty_gate</code>, <code>low_confidence_escalate</code>, <code>cache_cheapest_sufficient</code>, <code>deterministic_sufficient</code>, <code>local_local_model_preferred</code>, <code>local_tool_preferred</code>, <code>local_agent_preferred</code>, <code>quality_cost_tradeoff</code>, or <code>no_feasible_option</code>.</p>
+<h2 id="the-feature-vectors">The feature vectors</h2>
+<p>The model consumes two fixed-width vectors and emits one score per option instance. There is no fixed output vocabulary: a capability never seen during training still receives a score, because the value head reads that option&#x27;s own feature row.</p>
+<p>The state vector is 30 dimensions, in this order:</p>
+<p><code>exact_hit</code>, <code>sem_similarity</code>, <code>sem_age</code>, <code>query_volatility</code>, <code>freshness_requirement</code>, <code>internet</code>, <code>net_latency</code>, <code>local_model</code>, <code>tool</code>, <code>agent</code>, <code>load</code>, <code>budget_remaining</code>, <code>cost_pressure</code>, <code>latency_pressure</code>, <code>task_risk</code>, <code>blast_radius</code>, <code>verification_required</code>, <code>step_count</code>, <code>ambiguity</code>, <code>complexity</code>, <code>novelty_prior</code>, <code>determinism_known</code>, <code>repeat_rate</code>, <code>recent_failure_rate</code>, <code>prior_success_rate</code>, <code>escalations</code>, <code>goal_type</code>, <code>verification_weight</code>, <code>cost_sensitivity</code>, <code>latency_sensitivity</code>.</p>
+<p>The option vector is 28 dimensions, in this order:</p>
+<p><code>cost_financial</code>, <code>cost_token</code>, <code>cost_energy</code>, <code>lat_p50</code>, <code>lat_p95</code>, <code>risk_base</code>, <code>failure_rate</code>, <code>side_effect</code>, <code>irreversible</code>, <code>quality</code>, <code>quality_ceiling</code>, <code>determinism</code>, <code>available</code>, <code>health</code>, <code>degraded</code>, <code>capability_match</code>, <code>req_satisfied</code>, <code>context_fit</code>, <code>is_cache</code>, <code>is_deterministic</code>, <code>is_local</code>, <code>is_tool</code>, <code>is_agent</code>, <code>is_online</code>, <code>is_human</code>, <code>is_escalate</code>, <code>is_stale</code>, <code>hist_success</code>.</p>
+<p>Six heads read those vectors: <code>value</code>, <code>cost</code>, <code>latency</code>, <code>risk</code>, <code>noise</code>, <code>novelty</code>. Noise and novelty are separate heads on purpose. Collapsing them into one would let a merely unfamiliar option look like a genuinely novel one.</p>
+<h2 id="the-exported-model">The exported model</h2>
+<p>The exported artefact is ONNX, not a Python pickle, so it loads anywhere without executing repository code.</p>
+<p>Two files ship:</p>
+<ul><li><strong>fp32</strong> — the reference. Its graph hash is checked against the checkpoint it</li></ul>
+<p>was exported from, and its selections are checked against the PyTorch model it came from.</p>
+<ul><li><strong>int8</strong> — quantised, roughly a quarter of the size. Quantisation is allowed</li></ul>
+<p>to change which option is selected; the gate measures the cost instead of pretending it is free.</p>
+<p>The gate is five terms: the graph matches its checkpoint, fp32 matches PyTorch, fp32 reproduces the same selection, int8&#x27;s accuracy cost is inside budget, and latency is inside its drift budget. The ONNX contract report renders the measured values.</p>
+<h2 id="what-is-not-here">What is not here</h2>
+<p>The weights, the training data, the code that produces them, and the analytic world the model was distilled from are not published on this site. They live in a private repository. Accuracy quoted anywhere on this site is measured against that world, which is a ranking against other routers on one synthetic environment — not a claim about production traffic.</p></article>
+<footer class="site">
+  NOVA &mdash; a learned option arbiter. Generated from
+  <a href="https://github.com/Alot1z/nova-jev-model">Alot1z/nova-jev-model</a> by <code>tools/build_site.py</code>.
+</footer>
+</div>
+</body>
+</html>
